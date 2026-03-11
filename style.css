@@ -1,0 +1,104 @@
+body {
+  background:#0a0a0a;
+  color:white;
+  font-family: 'Courier New', monospace;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  height:100vh;
+  margin:0;
+}
+
+.game {
+  width:600px;
+  border: 2px solid #fff;
+  padding:20px;
+  position:relative;
+}
+
+#text {
+  font-size:22px;
+  margin-bottom:30px;
+  min-height:80px;
+}
+
+button {
+  background:#222;
+  color:white;
+  border:none;
+  padding:10px 20px;
+  margin:5px;
+  cursor:pointer;
+  transition:0.2s;
+}
+
+button:hover {
+  background:#444;
+}
+
+.glitch {
+  animation: glitch 0.2s;
+}
+
+@keyframes glitch {
+  0% {transform:translate(2px,0);}
+  25% {transform:translate(-2px,0);}
+  50% {transform:translate(2px,0);}
+  75% {transform:translate(-2px,0);}
+  100% {transform:translate(0,0);}
+}
+/* Fade-in للنصوص */
+.dialogue {
+  background: rgba(20,20,20,0.8);
+  border: 2px solid #0ff;
+  padding: 15px;
+  font-family: 'Courier New', monospace;
+  font-size: 20px;
+  min-height:80px;
+  color:#0ff;
+  box-shadow: 0 0 10px #0ff;
+  position: relative;
+  opacity:0;
+  transition: opacity 0.5s ease-in;
+}
+
+/* ظهور تدريجي */
+.dialogue.show {
+  opacity:1;
+}
+
+/* اهتزاز للشاشة */
+.screen-shake {
+  animation: shake 0.2s;
+}
+
+@keyframes shake {
+  0% {transform: translate(2px,0);}
+  25% {transform: translate(-2px,0);}
+  50% {transform: translate(2px,0);}
+  75% {transform: translate(-2px,0);}
+  100% {transform: translate(0,0);}
+}
+
+/* Glitch effect */
+.dialogue.glitch {
+  animation: glitchShake 0.15s;
+}
+
+@keyframes glitchShake {
+  0% {transform: translate(1px,0);}
+  25% {transform: translate(-1px,0);}
+  50% {transform: translate(1px,0);}
+  75% {transform: translate(-1px,0);}
+  100% {transform: translate(0,0);}
+}
+
+/* Flicker effect */
+.flicker {
+  animation: flickerAnim 0.1s infinite;
+}
+
+@keyframes flickerAnim {
+  0%, 100% {opacity:1;}
+  50% {opacity:0.6;}
+}
