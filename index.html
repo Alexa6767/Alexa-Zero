@@ -748,6 +748,14 @@
     const musicBtn = document.getElementById("music-btn");
     const resetBtn = document.getElementById("reset-btn");
 
+    const htmlAudioElements = [heartbeat, goodChoiceSound, evilChoiceSound, neutralChoiceSound, textTypeSound, textShoutSound, timerSound];
+    htmlAudioElements.forEach(el => {
+        if (el) {
+            el.onerror = (e) => console.error('HTML audio error:', el.id, e);
+            el.oncanplay = () => console.log('HTML audio canplay:', el.id, el.currentSrc);
+        }
+    });
+
     // ============= BACKEND COMMUNICATION =============
     const API_BASE = '/api';
 

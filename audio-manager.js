@@ -1,6 +1,6 @@
 // Audio Manager for Alexa-Zero
 const AudioManager = {
-    musicSources: ["./nocturne.mp3"],
+    musicSources: ["/nocturne.mp3"],
     audioContext: null,
     soundEffects: {
         goodChoice: null,
@@ -189,7 +189,13 @@ const AudioManager = {
             onplay: () => {
                 this.isPlaying = true;
                 this.updateButtonUI(true);
-                console.log("Music playing");
+                console.log('Playing audio:', randomMusic);
+            },
+            onloaderror: (id, error) => {
+                console.error('Howler load error:', randomMusic, error);
+            },
+            onplayerror: (id, error) => {
+                console.error('Howler play error:', randomMusic, error);
             },
             onpause: () => {
                 this.isPlaying = false;
