@@ -261,6 +261,14 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(PUBLIC_ROOT));
 
+app.get('/audio-manager.js', (req, res) => {
+  res.sendFile(path.join(__dirname, 'audio-manager.js'));
+});
+
+app.get('/nocturne.mp3', (req, res) => {
+  res.sendFile(path.join(__dirname, 'nocturne.mp3'));
+});
+
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
