@@ -1,0 +1,26 @@
+{
+  "default": {
+    "id": "default",
+    "name": null,
+    "sessionCount": 1,
+    "currentRoom": "S1_START",
+    "memory": {
+      "hostility_level": 2,
+      "is_creator": false,
+      "S1_Fear": null,
+      "lastChoice": "timeout silence",
+      "sessionNotes": [
+        "Patient 000 completed Session 1.\n\nPatient remained calm and cooperative throughout the session.\n\nOverall Assessment: Patient shows potential for therapeutic progress. Recommend continuing with structured sessions to build trust and address identified concerns.",
+        "Patient Patient completed Session 1.\n\nPatient showed mild hostility, with occasional interruptions. Monitor for escalation.\n\nPatient's primary concern: silence.\n\nOverall Assessment: Patient shows potential for therapeutic progress. Recommend continuing with structured sessions to build trust and address identified concerns.",
+        "Patient Patient completed Session 1.\n\nPatient showed mild hostility, with occasional interruptions. Monitor for escalation.\n\nPatient's primary concern: silence.\n\nOverall Assessment: Patient shows potential for therapeutic progress. Recommend continuing with structured sessions to build trust and address identified concerns.",
+        "Patient Patient completed Session 1.\n\nPatient showed mild hostility, with occasional interruptions. Monitor for escalation.\n\nPatient's primary concern: silence.\n\nOverall Assessment: Patient shows potential for therapeutic progress. Recommend continuing with structured sessions to build trust and address identified concerns."
+      ],
+      "lastIssue": "silence"
+    },
+    "choices": [],
+    "characterStage": "initial",
+    "silenceCount": 0,
+    "interruptCount": 0,
+    "lastSession": "2026-05-11T12:17:29.090Z"
+  }
+}

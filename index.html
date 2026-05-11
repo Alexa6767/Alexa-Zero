@@ -1,0 +1,1342 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alexa-Zero AI Therapist</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #000000;
+            --box-bg: #111111;
+            --text-color: #ffffff;
+            --accent-color: #ff0040;
+            --choice-border: #444444;
+            --good-color: #00ff00;
+            --neutral-color: #999999;
+            --bad-color: #ff0000;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Press Start 2P', monospace;
+            font-size: 8px;
+            min-height: 100vh;
+            overflow-x: hidden;
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: crisp-edges;
+        }
+
+        body.unstable {
+            animation: screen-shake 0.1s infinite;
+        }
+
+        body.climax {
+            animation: intense-glitch 0.05s infinite;
+            background: linear-gradient(45deg, #000000, #220000);
+        }
+
+        @keyframes screen-shake {
+            0% { transform: translate(0); }
+            25% { transform: translate(-1px, 1px); }
+            50% { transform: translate(1px, -1px); }
+            75% { transform: translate(-1px, -1px); }
+            100% { transform: translate(0); }
+        }
+
+        @keyframes intense-glitch {
+            0% { transform: translate(0); filter: hue-rotate(0deg); }
+            10% { transform: translate(-2px, 2px); filter: hue-rotate(90deg); }
+            20% { transform: translate(2px, -2px); filter: hue-rotate(180deg); }
+            30% { transform: translate(-1px, -1px); filter: hue-rotate(270deg); }
+            40% { transform: translate(1px, 1px); filter: hue-rotate(0deg); }
+            50% { transform: translate(-2px, 0px); filter: hue-rotate(90deg); }
+            60% { transform: translate(0px, -2px); filter: hue-rotate(180deg); }
+            70% { transform: translate(-1px, 1px); filter: hue-rotate(270deg); }
+            80% { transform: translate(1px, -1px); filter: hue-rotate(0deg); }
+            90% { transform: translate(-1px, -1px); filter: hue-rotate(90deg); }
+            100% { transform: translate(0); filter: hue-rotate(0deg); }
+        }
+
+        #box {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 85%;
+            max-width: 700px;
+            background: var(--box-bg);
+            border: 3px solid var(--accent-color);
+            padding: 25px;
+            box-shadow:
+                0 0 0 1px var(--accent-color),
+                0 0 0 4px #000000,
+                0 0 20px rgba(255, 0, 64, 0.3);
+            image-rendering: pixelated;
+        }
+
+        #text-container {
+            margin-bottom: 25px;
+            min-height: 120px;
+            border-bottom: 2px solid var(--accent-color);
+            padding-bottom: 15px;
+        }
+
+        #text {
+            font-size: 10px;
+            line-height: 1.8;
+            white-space: pre-wrap;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .therapist-text {
+            color: var(--text-color);
+        }
+
+        .shout-text {
+            color: #ff8080;
+            text-shadow: 0 0 12px rgba(255, 0, 0, 0.65);
+        }
+
+        .interrupted-text {
+            color: var(--bad-color);
+            animation: interrupt-flash 0.3s ease-out;
+        }
+
+        .unstable-text {
+            color: var(--bad-color);
+            text-shadow: 1px 1px 0px #000000;
+            animation: text-glitch 0.1s infinite;
+        }
+
+        .climax-text {
+            color: var(--bad-color);
+            font-weight: bold;
+            text-shadow:
+                1px 1px 0px #000000,
+                2px 2px 0px var(--accent-color),
+                3px 3px 0px #000000;
+            animation: climax-pulse 0.5s infinite alternate;
+        }
+
+        @keyframes interrupt-flash {
+            0% { opacity: 1; }
+            50% { opacity: 0.3; color: var(--accent-color); }
+            100% { opacity: 1; }
+        }
+
+        @keyframes text-glitch {
+            0% { transform: translate(0); }
+            20% { transform: translate(-1px, 1px); }
+            40% { transform: translate(1px, -1px); }
+            60% { transform: translate(-1px, -1px); }
+            80% { transform: translate(1px, 1px); }
+            100% { transform: translate(0); }
+        }
+
+        @keyframes climax-pulse {
+            from {
+                text-shadow:
+                    1px 1px 0px #000000,
+                    2px 2px 0px var(--accent-color),
+                    3px 3px 0px #000000;
+            }
+            to {
+                text-shadow:
+                    1px 1px 0px #000000,
+                    2px 2px 0px var(--accent-color),
+                    3px 3px 0px #000000,
+                    0 0 10px var(--bad-color);
+            }
+        }
+
+        .choice-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            align-items: stretch;
+            margin-top: 20px;
+        }
+
+        .choice {
+            background: #000000;
+            border: 2px solid var(--choice-border);
+            color: var(--text-color);
+            padding: 14px 16px;
+            cursor: pointer;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.2s ease;
+            width: 100%;
+            text-align: left;
+            image-rendering: pixelated;
+            position: relative;
+            min-width: auto;
+        }
+
+        .choice::before {
+            content: '>';
+            margin-right: 8px;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            font-size: 10px;
+        }
+
+        .choice:hover::before {
+            opacity: 1;
+        }
+
+        .choice:hover {
+            border-color: var(--accent-color);
+            box-shadow:
+                0 0 0 1px var(--accent-color),
+                0 0 10px rgba(255, 0, 64, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .choice.good {
+            border-color: var(--good-color);
+            color: var(--good-color);
+        }
+
+        .choice.good:hover {
+            box-shadow:
+                0 0 0 1px var(--good-color),
+                0 0 10px rgba(0, 255, 0, 0.5);
+        }
+
+        .choice.neutral {
+            border-color: var(--neutral-color);
+            color: var(--neutral-color);
+        }
+
+        .choice.neutral:hover {
+            box-shadow:
+                0 0 0 1px var(--neutral-color),
+                0 0 10px rgba(153, 153, 153, 0.5);
+        }
+
+        .choice.bad {
+            border-color: var(--bad-color);
+            color: var(--bad-color);
+        }
+
+        .choice.bad:hover {
+            box-shadow:
+                0 0 0 1px var(--bad-color),
+                0 0 10px rgba(255, 0, 0, 0.5);
+        }
+
+        .choice:active {
+            transform: translateY(0) scale(0.98);
+        }
+
+        .choice.good:active {
+            background: rgba(0, 255, 0, 0.1);
+            box-shadow: inset 0 0 10px rgba(0, 255, 0, 0.3);
+        }
+
+        .choice.neutral:active {
+            background: rgba(153, 153, 153, 0.12);
+            box-shadow: inset 0 0 10px rgba(153, 153, 153, 0.3);
+        }
+
+        .choice.bad:active {
+            background: rgba(255, 0, 0, 0.1);
+            box-shadow: inset 0 0 10px rgba(255, 0, 0, 0.3);
+        }
+
+        #name-input {
+            display: none;
+            width: 100%;
+            margin-top: 16px;
+            padding: 14px 16px;
+            background: #050505;
+            border: 2px solid rgba(255,255,255,0.08);
+            color: var(--text-color);
+            font-family: 'Press Start 2P', monospace;
+            font-size: 10px;
+            letter-spacing: 1px;
+            outline: none;
+            text-transform: uppercase;
+            transition: border-color 0.2s ease, background 0.2s ease;
+        }
+
+        #name-input:focus {
+            border-color: var(--accent-color);
+            background: rgba(0, 0, 0, 0.9);
+        }
+
+        @keyframes button-flash {
+            0% { border-color: var(--choice-border); }
+            50% { border-color: var(--accent-color); }
+            100% { border-color: var(--choice-border); }
+        }
+
+        #cursor {
+            display: inline-block;
+            width: 8px;
+            height: 14px;
+            background: var(--accent-color);
+            animation: blink-cursor 1s infinite;
+            vertical-align: bottom;
+        }
+
+        @keyframes blink-cursor {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+
+        body.glitch {
+            animation: glitch-anim 0.3s infinite;
+        }
+
+        @keyframes glitch-anim {
+            0% { transform: translate(0); }
+            20% { transform: translate(-2px, 2px); }
+            40% { transform: translate(-2px, -2px); }
+            60% { transform: translate(2px, 2px); }
+            80% { transform: translate(2px, -2px); }
+            100% { transform: translate(0); }
+        }
+
+        .hate-climax {
+            color: #ff0000;
+            text-shadow: 0 0 10px #ff0000;
+            animation: pulse 0.5s infinite alternate;
+        }
+
+        @keyframes pulse {
+            from { text-shadow: 0 0 10px #ff0000; }
+            to { text-shadow: 0 0 20px #ff0000, 0 0 30px #ff0000; }
+        }
+
+        input {
+            width: 100%;
+            padding: 15px;
+            background: #000000;
+            border: 2px solid var(--accent-color);
+            color: var(--text-color);
+            font-family: 'Press Start 2P', monospace;
+            font-size: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 20px;
+            box-shadow: 0 0 0 1px #000000;
+            image-rendering: pixelated;
+        }
+
+        input:focus {
+            border-color: var(--good-color);
+            box-shadow: 0 0 0 1px #000000, 0 0 10px rgba(0, 255, 0, 0.5);
+        }
+
+        input::placeholder {
+            color: #666666;
+            text-transform: uppercase;
+        }
+
+        #bg-noise {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><defs><pattern id="noise" width="100" height="100" patternUnits="userSpaceOnUse"><rect width="100" height="100" fill="%23000"/><circle cx="50" cy="50" r="1" fill="%23fff" opacity="0.03"/></pattern></defs><rect width="100%" height="100%" fill="url(%23noise)"/></svg>');
+            opacity: 0.1;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        #scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(255, 255, 255, 0.03) 2px,
+                rgba(255, 255, 255, 0.03) 4px
+            );
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        #start-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            cursor: pointer;
+            animation: fade-in 2s ease-out;
+            border: 4px solid var(--accent-color);
+            box-sizing: border-box;
+        }
+
+        @keyframes fade-in {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        #start-screen p {
+            font-size: 12px;
+            color: var(--accent-color);
+            text-align: center;
+            font-family: 'Press Start 2P', monospace;
+            animation: glow 2s ease-in-out infinite alternate;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow:
+                2px 2px 0px #000000,
+                4px 4px 0px var(--accent-color);
+            margin: 0;
+            padding: 20px;
+            border: 2px solid var(--accent-color);
+            background: #111111;
+        }
+
+        @keyframes glow {
+            from {
+                text-shadow:
+                    2px 2px 0px #000000,
+                    4px 4px 0px var(--accent-color);
+            }
+            to {
+                text-shadow:
+                    2px 2px 0px #000000,
+                    4px 4px 0px var(--accent-color),
+                    0 0 20px var(--accent-color);
+            }
+        }
+
+        #reset-btn {
+            position: absolute;
+            bottom: 15px;
+            right: 15px;
+            background: #000000;
+            border: 2px solid #444444;
+            color: #666666;
+            padding: 10px 15px;
+            cursor: pointer;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.2s ease;
+            image-rendering: pixelated;
+        }
+
+        #music-btn {
+            position: absolute;
+            bottom: 15px;
+            left: 15px;
+            background: #000000;
+            border: 2px solid #444444;
+            color: #666666;
+            padding: 10px 15px;
+            cursor: pointer;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.2s ease;
+            image-rendering: pixelated;
+        }
+
+        #music-btn, #reset-btn {
+            opacity: 0.8;
+        }
+
+        #music-btn:hover, #reset-btn:hover {
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+            opacity: 1;
+            box-shadow: 0 0 0 1px var(--accent-color);
+        }
+
+        #timer-bar {
+            position: absolute;
+            bottom: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 400px;
+            height: 8px;
+            background: #000000;
+            border: 2px solid var(--accent-color);
+            border-radius: 0;
+            overflow: hidden;
+            display: none;
+            box-shadow: 0 0 0 1px #000000;
+            image-rendering: pixelated;
+        }
+
+        #timer-fill {
+            height: 100%;
+            background: var(--accent-color);
+            width: 100%;
+            transition: width 0.1s linear;
+            box-shadow: inset 0 0 0 1px #000000;
+        }
+
+        #timer-fill.urgent {
+            background: var(--bad-color);
+            animation: timer-urgent 0.3s infinite alternate;
+        }
+
+        @keyframes timer-urgent {
+            from { background: var(--bad-color); }
+            to { background: var(--accent-color); }
+        }
+
+        .particle {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: var(--accent-color);
+            border-radius: 50%;
+            pointer-events: none;
+            animation: float 3s linear infinite;
+            z-index: 10;
+        }
+
+        @keyframes float {
+            from {
+                transform: translateY(100vh) rotate(0deg);
+                opacity: 1;
+            }
+            to {
+                transform: translateY(-100px) rotate(360deg);
+                opacity: 0;
+            }
+        }
+
+        /* END SESSION MENU STYLES */
+        #end-session-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: none;
+            z-index: 1000;
+            overflow: hidden;
+            color: #00ff88;
+            font-family: 'Press Start 2P', monospace;
+        }
+
+        #end-session-screen #bg-noise {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                radial-gradient(circle at 20% 80%, rgba(0, 255, 136, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(0, 255, 136, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 40% 40%, rgba(0, 255, 136, 0.05) 0%, transparent 50%);
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        #end-session-screen #scanlines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(0, 255, 136, 0.03) 2px,
+                rgba(0, 255, 136, 0.03) 4px
+            );
+            pointer-events: none;
+        }
+
+        #end-session-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #00ff88;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 12px;
+            max-width: 600px;
+            z-index: 10;
+        }
+
+        #end-session-title {
+            font-size: 18px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px #00ff88;
+        }
+
+        #end-session-notes {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border: 2px solid #00ff88;
+            border-radius: 0;
+            margin-bottom: 30px;
+            font-size: 10px;
+            line-height: 1.6;
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
+            text-align: left;
+        }
+
+        .end-menu-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .end-menu-button {
+            background: #000;
+            border: 2px solid #00ff88;
+            padding: 15px 25px;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 10px;
+            color: #00ff88;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+        }
+
+        .end-menu-button:hover {
+            background: #00ff88;
+            color: #000;
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
+        }
+
+        .end-menu-button:active {
+            background: #00ff88;
+            color: #000;
+        }
+    </style>
+</head>
+<body>
+
+<div id="start-screen">
+    <p>[ INITIALIZE THERAPY SESSION ]</p>
+</div>
+
+<div id="bg-noise"></div>
+<div id="scanlines"></div>
+
+<div id="timer-bar">
+    <div id="timer-fill"></div>
+</div>
+
+<button id="music-btn">🎵 Music: OFF</button>
+
+<button id="reset-btn">Reset AI</button>
+
+<!-- END SESSION SCREEN -->
+<div id="end-session-screen">
+    <div id="bg-noise"></div>
+    <div id="scanlines"></div>
+    <div id="end-session-content">
+        <div id="end-session-title">SESSION COMPLETE</div>
+        <div id="end-session-notes"></div>
+        <div class="end-menu-buttons">
+            <button class="end-menu-button" data-choice="Start Next Session">START NEXT SESSION</button>
+            <button class="end-menu-button" data-choice="Read Full Notes">READ NOTES</button>
+            <button class="end-menu-button" data-choice="Reset AI">RESET AI</button>
+        </div>
+    </div>
+</div>
+
+<div id="box">
+    <div id="text-container">
+        <span id="text"></span><span id="cursor"></span>
+    </div>
+    <input type="text" id="name-input" placeholder="ENTER YOUR NAME">
+    <div id="choices" class="choice-container"></div>
+</div>
+
+<audio id="heartbeat" loop preload="auto">
+    <source src="https://www.soundjay.com/misc/sounds/heartbeat-01.wav" type="audio/wav">
+</audio>
+
+<audio id="goodChoiceSound" preload="auto">
+</audio>
+
+<audio id="evilChoiceSound" preload="auto">
+</audio>
+
+<audio id="neutralChoiceSound" preload="auto">
+</audio>
+
+<audio id="textTypeSound" preload="auto">
+</audio>
+
+<audio id="textShoutSound" preload="auto">
+</audio>
+
+<audio id="timerSound" preload="auto">
+    <source src="https://www.soundjay.com/misc/sounds/tick-tock-1.wav" type="audio/wav">
+</audio>
+
+<script>
+    // ============= AI THERAPIST SYSTEM =============
+    // Local scripted therapist engine with persistent memory
+
+    // ============= STATE MANAGEMENT =============
+    let state = {
+        name: "",
+        conversationHistory: [],
+        isTyping: false,
+        particles: [],
+        currentMood: "calm",
+        timerSoundPlayed: false,
+        sessionData: {
+            sessionCount: 0,
+            patientName: null,
+            choicePatterns: { good: 0, bad: 0, neutral: 0 },
+            characterStage: 'initial'
+        },
+        timer: {
+            active: false,
+            startTime: 0,
+            duration: 25,
+            interrupted: false,
+            timeout: false
+        },
+        cancelTyping: false
+    };
+
+    let timerInterval;
+    let timerTimeout;
+    let timerInterruptTimeout;
+    let timerActive = false;
+    let timerStartTime = 0;
+    let timerDuration = 25;
+    let typePromise = Promise.resolve();
+
+    const textEl = document.getElementById("text");
+    const choicesEl = document.getElementById("choices");
+    const heartbeat = document.getElementById("heartbeat");
+    const timerBar = document.getElementById("timer-bar");
+    const timerFill = document.getElementById("timer-fill");
+    const goodChoiceSound = document.getElementById("goodChoiceSound");
+    const evilChoiceSound = document.getElementById("evilChoiceSound");
+    const neutralChoiceSound = document.getElementById("neutralChoiceSound");
+    const textTypeSound = document.getElementById("textTypeSound");
+    const textShoutSound = document.getElementById("textShoutSound");
+    const timerSound = document.getElementById("timerSound");
+    const musicBtn = document.getElementById("music-btn");
+    const resetBtn = document.getElementById("reset-btn");
+
+    // ============= BACKEND COMMUNICATION =============
+    const API_BASE = 'http://127.0.0.1:3001/api';
+
+    async function sendToAI(message = null, choice = null, timerAction = null) {
+        try {
+            const response = await fetch(`${API_BASE}/chat`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    userMessage: message,
+                    userChoice: choice,
+                    userId: 'default',
+                    timerAction: timerAction
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('AI service unavailable');
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('AI Error:', error);
+            return {
+                message: "SYSTEM ERROR: Connection lost. Session integrity compromised.",
+                choices: ["Reinitialize connection", "Continue offline", "Terminate session", "Request system diagnostic"],
+                mood: "unstable",
+                effects: ["error", "glitch"]
+            };
+        }
+    }
+
+    async function resetAI() {
+        try {
+            await fetch(`${API_BASE}/reset`, { method: 'POST' });
+        } catch (error) {
+            console.error('Reset error:', error);
+        }
+        state.conversationHistory = [];
+    }
+
+    // ============= AUDIO FUNCTIONS =============
+    function playBlip(isShout = false) {
+        if (isShout && textShoutSound.src) {
+            textShoutSound.currentTime = 0;
+            textShoutSound.play().catch(() => {});
+        } else if (textTypeSound.src) {
+            textTypeSound.currentTime = 0;
+            textTypeSound.play().catch(() => {});
+        }
+    }
+
+    function playChoiceSound(choiceType, severity = 'normal') {
+        if (window.AudioManager) {
+            if (choiceType === 'good') {
+                window.AudioManager.playSound('goodChoice');
+            } else if (choiceType === 'bad') {
+                if (severity === 'severe') {
+                    window.AudioManager.playSound('badChoiceSevere');
+                } else {
+                    window.AudioManager.playSound('badChoice');
+                }
+            } else {
+                window.AudioManager.playSound('neutralChoice');
+            }
+        }
+    }
+
+    function getChoiceSeverity(choiceText) {
+        const text = choiceText.toLowerCase();
+        const severeTriggers = ['hate', 'kill', 'never', 'shut up', 'stop', 'leave', 'hurt', 'destroy'];
+        return severeTriggers.some(trigger => text.includes(trigger)) ? 'severe' : 'normal';
+    }
+
+    function playErrorSound() {
+        if (window.AudioManager) {
+            window.AudioManager.playSound('error');
+        }
+    }
+
+    function playTypeSound(isShout = false) {
+        if (window.AudioManager) {
+            if (isShout) {
+                window.AudioManager.playSound('typingGlitch');
+            } else if (state.currentMood === 'intense' || state.currentMood === 'challenging') {
+                window.AudioManager.playSound('typingAngry');
+            } else {
+                window.AudioManager.playSound('typingCalm');
+            }
+        }
+    }
+
+    function resumeAudioContext() {
+        if (window.AudioContext || window.webkitAudioContext) {
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+    }
+
+    // ============= PARTICLE EFFECTS =============
+    function createParticle() {
+        const particle = document.createElement("div");
+        particle.className = "particle";
+        particle.style.left = Math.random() * 100 + "%";
+        particle.style.animationDuration = (Math.random() * 3 + 2) + "s";
+        document.body.appendChild(particle);
+        setTimeout(() => particle.remove(), 5000);
+    }
+
+    // ============= TEXT RENDERING =============
+    async function writeText(text, speed, element, isShout = false, pace = null) {
+        return new Promise((resolve) => {
+            element.textContent = "";
+            let i = 0;
+            const timer = setInterval(() => {
+                if (state.cancelTyping) {
+                    clearInterval(timer);
+                    state.cancelTyping = false;
+                    resolve();
+                    return;
+                }
+
+                if (i < text.length) {
+                    element.textContent += text[i];
+                    playTypeSound(isShout);
+                    i++;
+                } else {
+                    clearInterval(timer);
+                    resolve();
+                }
+            }, speed);
+        });
+    }
+
+    async function typeEffect(text, speed = 14, pace = null, isShout = false) {
+        state.isTyping = true;
+        textEl.classList.remove("shout-text", "mayada-message");
+        if (isShout) {
+            document.body.classList.add('glitch');
+            textEl.classList.add('shout-text');
+        }
+
+        // Apply mood-based styling
+        document.body.classList.remove("high-trust", "low-trust");
+        if (state.currentMood === "intense" || state.currentMood === "challenging") {
+            document.body.classList.add("low-trust");
+        }
+
+        await writeText(text, speed, textEl, isShout, pace);
+        state.isTyping = false;
+        if (isShout) {
+            document.body.classList.remove('glitch');
+            textEl.classList.remove('shout-text');
+        }
+    }
+
+    // ============= TIMER FUNCTIONS (KATANA ZERO STYLE) =============
+    function startTimer(duration = 25) {
+        clearInterval(timerInterval);
+        clearTimeout(timerTimeout);
+        clearTimeout(timerInterruptTimeout);
+
+        state.timer.active = true;
+        state.timer.startTime = Date.now();
+        state.timer.duration = duration;
+        state.timer.interrupted = false;
+        state.timer.timeout = false;
+
+        timerBar.style.display = "block";
+        timerFill.style.width = "100%";
+        timerFill.classList.remove("urgent");
+
+        const urgentThreshold = duration * 0.2; // Last 20% is urgent
+        const interruptThreshold = duration * 0.5; // Can interrupt in first 50%
+
+        timerInterval = setInterval(() => {
+            const elapsed = (Date.now() - state.timer.startTime) / 1000;
+            const remaining = Math.max(0, state.timer.duration - elapsed);
+            const progress = (remaining / state.timer.duration) * 100;
+
+            timerFill.style.width = progress + "%";
+
+            // Make timer urgent in last 20%
+            if (remaining <= urgentThreshold && remaining > 0) {
+                timerFill.classList.add("urgent");
+                if (!state.timerSoundPlayed) {
+                    if (window.AudioManager) {
+                        window.AudioManager.playSound('interrupt');
+                    }
+                    state.timerSoundPlayed = true;
+                }
+            }
+
+            // Check for timeout - CRITICAL: Stop interval immediately to prevent duplicate calls
+            if (elapsed >= state.timer.duration) {
+                clearInterval(timerInterval); // BUG FIX: Clear immediately to prevent repeated fires
+                state.timer.timeout = true;
+                stopTimer();
+                handleTimerTimeout();
+            }
+        }, 50);
+
+        // Allow interruption during first 50% of timer (can click during typing)
+        timerInterruptTimeout = setTimeout(() => {
+            // After interrupt window, show normal choices
+            if (state.isTyping) {
+                // Still typing - waiting for user to either interrupt or wait
+                document.addEventListener('keypress', handleTimerInterruptKeypress, { once: true });
+            }
+        }, interruptThreshold * 1000);
+    }
+
+    function handleTimerInterruptKeypress(event) {
+        if (!state.timer.active) return;
+        
+        // Only treat Enter/Spacebar as interrupt during typing
+        if (event.key === 'Enter' || event.key === ' ') {
+            handleTimerInterrupt();
+        }
+    }
+
+    function handleTimerInterrupt() {
+        if (!state.timer.active) return;
+
+        state.timer.interrupted = true;
+        state.cancelTyping = true;
+        stopTimer();
+
+        // Interrupt the typing
+        if (state.isTyping) {
+            textEl.classList.add("interrupted-text");
+            setTimeout(() => {
+                textEl.classList.remove("interrupted-text");
+            }, 300);
+        }
+
+        // Send interrupt signal to AI
+        sendTimerAction('interrupt');
+    }
+
+    function handleTimerTimeout() {
+        // BUG FIX: Add one-shot guard to prevent duplicate API calls
+        if (state.timer.timeout === 'sent') {
+            console.warn('Timer timeout already sent, ignoring duplicate call');
+            return;
+        }
+        
+        // Patient remained silent - send timeout signal
+        state.timer.timeout = 'sent'; // Mark as sent to prevent duplicates
+        sendTimerAction('timeout');
+    }
+
+    async function sendTimerAction(action) {
+        // Allow timeout and interrupt trigger calls even when the timer has already stopped
+        if (!state.timer.active && action !== 'interrupt' && action !== 'timeout') {
+            console.warn(`Timer action '${action}' received when timer not active, ignoring`);
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_BASE}/chat`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    userId: 'default',
+                    timerAction: action
+                })
+            });
+
+            if (response.ok) {
+                const aiResponse = await response.json();
+                await renderAIResponse(aiResponse);
+            }
+        } catch (error) {
+            console.error('Timer action error:', error);
+        }
+    }
+
+    function stopTimer() {
+        clearInterval(timerInterval);
+        clearTimeout(timerTimeout);
+        clearTimeout(timerInterruptTimeout);
+        timerBar.style.display = "none";
+        state.timer.active = false;
+        state.timer.timeout = false; // Reset for next timer
+        state.timerSoundPlayed = false;
+        document.removeEventListener('click', handleTimerInterrupt);
+        document.removeEventListener('keypress', handleTimerInterruptKeypress);
+    }
+
+    // ============= END SESSION FUNCTIONS =============
+    function showEndSessionScreen(aiResponse) {
+        const screen = document.getElementById('end-session-screen');
+        const notesDiv = document.getElementById('end-session-notes');
+        
+        // Display the full message as notes, prefixed with explanation
+        notesDiv.innerHTML = "<strong>These are Alexa's personal notes from this session, written based on your responses:</strong><br><br>" + aiResponse.message.replace(/\n/g, '<br>');
+        
+        screen.style.display = 'block';
+        
+        // Start relaxing background music
+        if (window.AudioManager && !window.AudioManager.isPlaying) {
+            window.AudioManager.toggleMusic();
+        }
+        
+        // Add button listeners
+        document.querySelectorAll('.end-menu-button').forEach(btn => {
+            btn.onclick = () => {
+                const choice = btn.getAttribute('data-choice');
+                hideEndSessionScreen();
+                sendToAI(null, choice);
+            };
+        });
+    }
+    
+    function hideEndSessionScreen() {
+        const screen = document.getElementById('end-session-screen');
+        screen.style.display = 'none';
+    }
+
+    // ============= RENDERING =============
+    function categorizeChoice(choiceText) {
+        const text = choiceText.toLowerCase();
+        if (text.includes('help') || text.includes('talk') || text.includes('understand') ||
+            text.includes('yes') || text.includes('okay') || text.includes('sure')) {
+            return 'good';
+        } else if (text.includes('ignore') || text.includes('stop') || text.includes('hate') ||
+                   text.includes('no') || text.includes('never') || text.includes('shut up')) {
+            return 'bad';
+        } else {
+            return 'neutral';
+        }
+    }
+
+    function setChoiceButtonsDisabled(disabled) {
+        const buttons = choicesEl.querySelectorAll("button.choice");
+        buttons.forEach(btn => {
+            btn.disabled = disabled;
+            btn.style.cursor = disabled ? "not-allowed" : "pointer";
+            btn.style.opacity = disabled ? "0.6" : "1";
+        });
+    }
+
+    function renderChoices(choices, mood = "calm") {
+        choicesEl.innerHTML = "";
+        choices.forEach((choiceText, index) => {
+            const btn = document.createElement("button");
+            btn.className = "choice";
+
+            const choiceType = categorizeChoice(choiceText);
+            btn.classList.add(choiceType);
+
+            btn.textContent = choiceText.toUpperCase();
+            btn.dataset.choiceType = choiceType;
+            btn.dataset.choiceSeverity = getChoiceSeverity(choiceText);
+            btn.disabled = false;
+            btn.style.cursor = "pointer";
+            btn.style.opacity = "1";
+
+            btn.onclick = async () => {
+                if (btn.disabled) return;
+
+                // Add user choice to history
+                state.conversationHistory.push({ role: 'user', content: choiceText });
+
+                playChoiceSound(choiceType, btn.dataset.choiceSeverity);
+                stopTimer();
+
+                // Disable all buttons during AI response
+                setChoiceButtonsDisabled(true);
+
+                // Show typing indicator
+                textEl.textContent = "PROCESSING...";
+                textEl.className = "therapist-text";
+                choicesEl.innerHTML = "";
+
+                // Get AI response
+                const aiResponse = await sendToAI(null, choiceText);
+
+                // Apply visual effects based on character stage
+                applyVisualEffects(aiResponse);
+
+                // Update mood and body classes
+                updateBodyStyling(aiResponse);
+
+                // Render AI response
+                await renderAIResponse(aiResponse);
+            };
+
+            choicesEl.appendChild(btn);
+        });
+    }
+
+    function renderInterruptChoices() {
+        choicesEl.innerHTML = "";
+        const interruptOptions = [
+            "Hurry up",
+            "I don't care",
+            "Stop wasting time"
+        ];
+
+        interruptOptions.forEach(option => {
+            const btn = document.createElement('button');
+            btn.className = 'choice bad';
+            btn.textContent = option.toUpperCase();
+            btn.onclick = async () => {
+                state.conversationHistory.push({ role: 'user', content: option });
+                playChoiceSound('bad');
+                state.cancelTyping = true;
+                stopTimer();
+                choicesEl.innerHTML = '';
+
+                const aiResponse = await sendToAI(null, option, 'interrupt');
+                applyVisualEffects(aiResponse);
+                updateBodyStyling(aiResponse);
+                await renderAIResponse(aiResponse);
+            };
+            choicesEl.appendChild(btn);
+        });
+    }
+
+    function applyVisualEffects(aiResponse) {
+        // Reset effects
+        document.body.classList.remove("unstable", "climax", "glitch");
+
+        if (aiResponse.effects) {
+            if (aiResponse.effects.includes("glitch")) {
+                document.body.classList.add("glitch");
+                setTimeout(() => document.body.classList.remove("glitch"), 500);
+            }
+
+            if (aiResponse.effects.includes("particles")) {
+                for (let i = 0; i < 8; i++) createParticle();
+            }
+
+            if (aiResponse.effects.includes("heartbeat")) {
+                heartbeat.volume = 0.3;
+                heartbeat.play().catch(() => {});
+            }
+
+            if (aiResponse.effects.includes("subtle_glitch")) {
+                document.body.classList.add("unstable");
+            }
+
+            if (aiResponse.effects.includes("intense_glitch")) {
+                document.body.classList.add("climax");
+            }
+
+            if (aiResponse.effects.includes("error_sounds")) {
+                // Play error sound effect
+                playErrorSound();
+            }
+
+            if (aiResponse.effects.includes("play_relaxing_music")) {
+                // Start background music
+                if (window.AudioManager) {
+                    window.AudioManager.playBackgroundMusic();
+                }
+            }
+
+            if (aiResponse.effects.includes("show_end_animation")) {
+                // Handled in renderAIResponse
+            }
+        }
+    }
+
+    function updateBodyStyling(aiResponse) {
+        // Update mood
+        state.currentMood = aiResponse.mood || "calm";
+
+        // Update character stage
+        if (aiResponse.characterStage) {
+            state.sessionData.characterStage = aiResponse.characterStage;
+        }
+    }
+
+    function playErrorSound() {
+        // Create a simple error beep sound
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        oscillator.frequency.setValueAtTime(150, audioContext.currentTime);
+        oscillator.frequency.setValueAtTime(100, audioContext.currentTime + 0.1);
+
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.2);
+    }
+
+    async function renderAIResponse(aiResponse) {
+        const nameInput = document.getElementById('name-input');
+        choicesEl.innerHTML = '';
+
+        // Special handling for end session menu
+        if (aiResponse.effects && aiResponse.effects.includes('show_end_animation')) {
+            showEndSessionScreen(aiResponse);
+            return;
+        }
+
+        if (aiResponse.requiresName) {
+            timerBar.style.display = 'none';
+            nameInput.style.display = 'block';
+            nameInput.focus();
+
+            const handleNameSubmit = async (e) => {
+                if (e.key === 'Enter' && nameInput.value.trim()) {
+                    const name = nameInput.value.trim();
+                    nameInput.style.display = 'none';
+                    nameInput.value = '';
+                    nameInput.removeEventListener('keydown', handleNameSubmit);
+
+                    const nameResponse = await sendToAI(null, `My name is ${name}`);
+                    await renderAIResponse(nameResponse);
+                }
+            };
+
+            nameInput.addEventListener('keydown', handleNameSubmit);
+            await typeEffect(aiResponse.message.toUpperCase(), 20);
+            return;
+        }
+
+        nameInput.style.display = 'none';
+
+        const timerDuration = Math.max(20, Math.min(40, aiResponse.message.length / 15));
+
+        textEl.className = 'therapist-text';
+        textEl.classList.remove('unstable-text', 'climax-text');
+
+        if (state.sessionData.characterStage === 'unstable') {
+            textEl.classList.add('unstable-text');
+        } else if (state.sessionData.characterStage === 'climax') {
+            textEl.classList.add('climax-text');
+        }
+
+        startTimer(timerDuration);
+        renderInterruptChoices();
+
+        const isShout = aiResponse.mood === 'angry' || aiResponse.mood === 'intense' || aiResponse.mood === 'challenging';
+        state.cancelTyping = false;
+        await typeEffect(aiResponse.message.toUpperCase(), 20, null, isShout);
+
+        renderChoices(aiResponse.choices || [], aiResponse.mood);
+        setChoiceButtonsDisabled(false);
+    }
+
+    async function startSession() {
+        // Get initial AI greeting
+        const aiResponse = await sendToAI("Hello, I'm ready to start our therapy session.");
+
+        await renderAIResponse(aiResponse);
+    }
+
+    // ============= INITIALIZATION =============
+    resetBtn.addEventListener("click", async () => {
+        await resetAI();
+        state.name = "";
+        state.conversationHistory = [];
+        state.currentMood = "calm";
+        location.reload();
+    });
+
+    // Music button now controlled by AudioManager
+    // Old musicBtn click handler removed - using audio-manager.js instead
+
+    // Start the session
+    document.getElementById("start-screen").addEventListener("click", function() {
+        this.style.display = "none";
+        resumeAudioContext();
+        startSession();
+    });
+</script>
+
+<!-- ============= HOWLER.JS AUDIO LIBRARY ============= -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.4/howler.min.js"></script>
+
+<!-- ============= AUDIO MANAGER ============= -->
+<script src="audio-manager.js"></script>
+
+</body>
+</html>
