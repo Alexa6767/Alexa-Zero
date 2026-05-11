@@ -261,6 +261,10 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(PUBLIC_ROOT));
 
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
 app.post('/api/chat', (req, res) => {
   try {
     const { userChoice, userId = 'default', timerAction } = req.body;
