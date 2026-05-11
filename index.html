@@ -843,10 +843,19 @@
     }
 
     function resumeAudioContext() {
+        if (window.AudioManager) {
+            const audioCtx = window.AudioManager.getAudioContext();
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume().catch(() => {});
+            }
+            window.AudioManager.hasStarted = true;
+            return;
+        }
+
         if (window.AudioContext || window.webkitAudioContext) {
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
+                audioCtx.resume().catch(() => {});
             }
         }
     }
@@ -1327,6 +1336,10 @@
     // Start the session
     document.getElementById("start-screen").addEventListener("click", function() {
         this.style.display = "none";
+        if (window.AudioManager) {
+            window.AudioManager.getAudioContext();
+            window.AudioManager.hasStarted = true;
+        }
         resumeAudioContext();
         startSession();
     });
