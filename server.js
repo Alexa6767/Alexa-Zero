@@ -8,7 +8,7 @@ const { roomMappings, interruptMappings, timeoutMappings, hostilityIncrements } 
 const app = express();
 const PORT = process.env.PORT || 3001;
 const USER_DATA_FILE = path.join(__dirname, 'userdata.json');
-const PUBLIC_ROOT = path.join(__dirname, '..');
+const PUBLIC_ROOT = path.join(__dirname);
 
 const defaultUser = {
   id: 'default',
