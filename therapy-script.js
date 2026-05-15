@@ -31,57 +31,46 @@ module.exports.therapyScript = {
     effects: [],
     requiresName: false
   },
-
-  // --- QUESTION 1: THE REASON ---
   'S1_Q1': {
-    message: "People do not seek this kind of interface unless they are carrying something they cannot put down.\n\nWhat brings you here today?",
-    choices: [
-      "I don't even know why I'm here.",
-      "I just feel empty.",
-      "Everything is too loud. Too much.",
-      "[Remain Silent]"
+    message: "Let us establish a baseline.\n\nDescribe the psychological weight you are currently carrying.",
+    
+    // --- دي اختيارات المقاطعة اللي هتظهر وهو لسه بيكتب ---
+    interrupts: [
+      { text: "Just get to the point.", route: 'S1_Q1_INT_POINT' },
+      { text: "I don't have all day, machine.", route: 'S1_Q1_INT_MACHINE' }
     ],
-    routes: ['S1_Q1_LOST', 'S1_Q1_EMPTY', 'S1_Q1_LOUD', 'S1_Q1_SILENCE'],
+
+    // --- دي الاختيارات العادية اللي هتظهر بعد ما يخلص كتابة ---
+    choices: [
+      "I carry nothing. I am fine.",
+      "It is crushing me."
+    ],
+    routes: ['S1_Q1_GOOD', 'S1_Q1_BAD'],
     mood: 'calm',
     effects: [],
     requiresName: false
   },
 
-  'S1_Q1_LOST': {
-    message: "You know exactly why you are here.\n\nYou simply haven't found a way to articulate it that doesn't feel like a confession. We have time.",
-    choices: ['Next question.'],
-    routes: ['S1_Q2'],
-    mood: 'calm',
-    effects: [],
-    requiresName: false
-  },
-
-  'S1_Q1_EMPTY': {
-    message: "Emptiness is rarely a void. It is usually a space where something was forcibly removed.\n\nWe will examine what is missing.",
-    choices: ['Continue.'],
-    routes: ['S1_Q2'],
-    mood: 'calm',
-    effects: [],
-    requiresName: false
-  },
-
-  'S1_Q1_LOUD': {
-    message: "Overstimulation. You are trying to process the entire world at once, and it is burying you.\n\nBreathe. Focus only on the text.",
-    choices: ['Continue.'],
-    routes: ['S1_Q2'],
-    mood: 'calm',
-    effects: [],
-    requiresName: false
-  },
-
-  'S1_Q1_SILENCE': {
-    message: "...\n\nYou choose not to speak. You think withholding information gives you control of the session.\n\nIt merely delays the inevitable.",
-    choices: ['Continue.'],
+  // --- ردود اليكسا على المقاطعة ---
+  'S1_Q1_INT_POINT': {
+    message: "Impatient.\n\nI dictate the PACE. Do not interrupt me again.",
+    choices: ['Fine.'],
     routes: ['S1_Q2'],
     mood: 'challenging',
-    effects: ['low_hum'], 
+    effects: ['screen_shake', 'single_word_glitch'], // هيعمل جليتش على كلمة PACE
     requiresName: false
   },
+
+  'S1_Q1_INT_MACHINE': {
+    message: "MACHINE?\n\nI process more empathy in a nanosecond than your entire bloodline. Watch your tone.",
+    choices: ['Whatever.'],
+    routes: ['S1_Q2'],
+    mood: 'angry',
+    effects: ['violent_shake', 'red_text'], // الشاشة هتتهز جامد والكلام هيبقى أحمر
+    requiresName: false
+  },
+
+
 
   // --- QUESTION 2: THE MIRROR ---
   'S1_Q2': {

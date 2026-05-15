@@ -3,7 +3,7 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const { therapyScript } = require('./therapy-script');
-const { roomMappings, interruptMappings, timeoutMappings, hostilityIncrements } = require('./room-mappings');
+const { roomMappings, hostilityIncrements } = require('./room-mappings');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -281,7 +281,7 @@ app.get('/', (req, res) => {
 
 app.post('/api/chat', (req, res) => {
   try {
-    const { userChoice, userId = 'default', timerAction } = req.body;
+    const { userChoice, userId = 'default' } = req.body;
     const user = getUser(userId);
 
     // First visit: show start screen
@@ -294,48 +294,10 @@ app.post('/api/chat', (req, res) => {
       return res.json(getResponseForRoom('S1_START', user));
     }
 
-// Handle timer interrupt (user clicked during Alexa's typing)
-    if (timerAction === 'interrupt') {
-      user.interruptCount = (user.interruptCount || 0) + 1;
-      
-      let nextRoom;
-      const scriptNode = therapyScript[user.currentRoom];
-      
-      // بنشوف هل الجلسة دي فيها اختيارات مقاطعة مخصصة؟
-      if (scriptNode && scriptNode.interrupts) {
-        // بندور على الاختيار اللي اليوزر داس عليه
-        const matchedInterrupt = scriptNode.interrupts.find(i => i.text === choiceText);
-        if (matchedInterrupt) {
-          nextRoom = matchedInterrupt.route; // يروح للرد المخصص
-        } else {
-          nextRoom = scriptNode.interrupts[0].route; // كاحتياطي لو حصلت لخبطة
-        }
-      } else {
-        // لو مفيش رد مخصص، يروح لغرفة مقاطعة عامة
-        nextRoom = 'DEFAULT_INTERRUPT'; 
-      }
-      
-      user.currentRoom = nextRoom;
-      user.memory.hostility_level = (user.memory.hostility_level || 0) + 1; // زيادة الغضب
-      
-      updateUserMemory(user, 'interrupt', nextRoom);
-      saveUserData(userData);
-      return res.json(getResponseForRoom(nextRoom, user));
-    }
 
 
 
 
-
-    // Handle timer timeout (user did nothing, silence)
-    if (timerAction === 'timeout') {
-      user.silenceCount = (user.silenceCount || 0) + 1;
-      const timeoutRoom = timeoutMappings[user.currentRoom] || user.currentRoom;
-      user.currentRoom = timeoutRoom;
-      updateUserMemory(user, 'timeout silence', timeoutRoom);
-      saveUserData(userData);
-      return res.json(getResponseForRoom(timeoutRoom, user));
-    }
 
     // No choice provided: return current room for existing user
     if (!userChoice) {

@@ -1,26 +1,44 @@
 {
   "default": {
     "id": "default",
-    "name": null,
+    "name": "alexa",
     "sessionCount": 1,
-    "currentRoom": "S1_START",
+    "currentRoom": "SESSION_END_MENU",
     "memory": {
-      "hostility_level": 2,
-      "is_creator": false,
+      "hostility_level": 0,
+      "is_creator": true,
       "S1_Fear": null,
-      "lastChoice": "timeout silence",
+      "lastChoice": "[End Session]",
+      "rudeCount": 28,
+      "lastIssue": "silence",
       "sessionNotes": [
-        "Patient 000 completed Session 1.\n\nPatient remained calm and cooperative throughout the session.\n\nOverall Assessment: Patient shows potential for therapeutic progress. Recommend continuing with structured sessions to build trust and address identified concerns.",
-        "Patient Patient completed Session 1.\n\nPatient showed mild hostility, with occasional interruptions. Monitor for escalation.\n\nPatient's primary concern: silence.\n\nOverall Assessment: Patient shows potential for therapeutic progress. Recommend continuing with structured sessions to build trust and address identified concerns.",
-        "Patient Patient completed Session 1.\n\nPatient showed mild hostility, with occasional interruptions. Monitor for escalation.\n\nPatient's primary concern: silence.\n\nOverall Assessment: Patient shows potential for therapeutic progress. Recommend continuing with structured sessions to build trust and address identified concerns.",
-        "Patient Patient completed Session 1.\n\nPatient showed mild hostility, with occasional interruptions. Monitor for escalation.\n\nPatient's primary concern: silence.\n\nOverall Assessment: Patient shows potential for therapeutic progress. Recommend continuing with structured sessions to build trust and address identified concerns."
+        "Patient am completed Session 1.\n\nPatient remained calm and cooperative throughout the session.\n\nPatient made rude or dismissive comments, such as expressing hurry or lack of interest. This may reflect impatience or skepticism about therapy.\n\nPatient's primary concern: silence.\n\nOverall Assessment: Patient shows potential for therapeutic progress. Recommend continuing with structured sessions to build trust and address identified concerns.",
+        "Patient am completed Session 1.\n\nPatient remained calm and cooperative throughout the session.\n\nPatient made rude or dismissive comments, such as expressing hurry or lack of interest. This may reflect impatience or skepticism about therapy.\n\nPatient's primary concern: silence.\n\nOverall Assessment: Patient shows potential for therapeutic progress. Recommend continuing with structured sessions to build trust and address identified concerns.",
+        "Patient AM completed Session 1.\n\nPatient remained calm and cooperative throughout the session.\n\nPatient made rude or dismissive comments, such as expressing hurry or lack of interest. This may reflect impatience or skepticism about therapy.\n\nPatient's primary concern: silence.\n\nOverall Assessment: Patient shows potential for therapeutic progress. Recommend continuing with structured sessions to build trust and address identified concerns.",
+        "Patient alexa completed Session 1.\n\nPatient remained calm and cooperative throughout the session.\n\nPatient made rude or dismissive comments, such as expressing hurry or lack of interest. This may reflect impatience or skepticism about therapy.\n\nPatient's primary concern: silence.\n\nOverall Assessment: Patient shows potential for therapeutic progress. Recommend continuing with structured sessions to build trust and address identified concerns."
       ],
-      "lastIssue": "silence"
+      "creator": true
     },
     "choices": [],
     "characterStage": "initial",
     "silenceCount": 0,
     "interruptCount": 0,
-    "lastSession": "2026-05-11T12:17:29.090Z"
+    "lastSession": "2026-05-15T18:09:17.751Z"
+  },
+  "test": {
+    "id": "test",
+    "name": null,
+    "sessionCount": 1,
+    "currentRoom": "S1_START",
+    "memory": {
+      "hostility_level": 0,
+      "is_creator": false,
+      "S1_Fear": null
+    },
+    "choices": [],
+    "characterStage": "initial",
+    "silenceCount": 0,
+    "interruptCount": 0,
+    "lastSession": "2026-05-15T17:09:13.755Z"
   }
 }

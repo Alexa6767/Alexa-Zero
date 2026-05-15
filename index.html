@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Alexa-Zero AI Therapist</title>
+    <title>Alexa-Zero</title>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -709,7 +709,6 @@
         isTyping: false,
         particles: [],
         currentMood: "calm",
-        timerSoundPlayed: false,
         sessionData: {
             sessionCount: 0,
             patientName: null,
@@ -727,8 +726,6 @@
     };
 
     let timerInterval;
-    let timerTimeout;
-    let timerInterruptTimeout;
     let timerActive = false;
     let timerStartTime = 0;
     let timerDuration = 25;
@@ -759,19 +756,20 @@
     // ============= BACKEND COMMUNICATION =============
     const API_BASE = '/api';
 
-    async function sendToAI(message = null, choice = null, timerAction = null) {
+    async function sendToAI(message = null, choice = null) {
         try {
+            const bodyPayload = {
+                userMessage: message,
+                userChoice: choice,
+                userId: 'default'
+            };
+
             const response = await fetch(`${API_BASE}/chat`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    userMessage: message,
-                    userChoice: choice,
-                    userId: 'default',
-                    timerAction: timerAction
-                })
+                body: JSON.stringify(bodyPayload)
             });
 
             if (!response.ok) {
@@ -877,31 +875,43 @@
         document.body.appendChild(particle);
         setTimeout(() => particle.remove(), 5000);
     }
+// ============= TEXT RENDERING =============
+  async function writeText(text, speed, element, isShout = false, pace = null) {
+      return new Promise((resolve) => {
+          // 1. فرملة إجبارية: لو فيه أي كتابة شغالة من الرد القديم، وقفها فوراً
+          if (state.typingTimer) {
+              clearInterval(state.typingTimer);
+          }
+          
+          // 2. تنظيف الشاشة وتصفير حالة المقاطعة عشان الرد الجديد ميتكروتش
+          element.textContent = "";
+          state.cancelTyping = false; 
+          
+          let i = 0;
+          
+          // 3. نسجل التايمر في الـ state عشان نقدر نفرمله في أي وقت
+          state.typingTimer = setInterval(() => {
+              // لو اليوزر داس مقاطعة أثناء ما الحروف دي بتنزل
+              if (state.cancelTyping) {
+                  clearInterval(state.typingTimer);
+                  state.cancelTyping = false;
+                  resolve();
+                  return;
+              }
+              
+              if (i < text.length) {
+                  element.textContent += text[i];
+                  playTypeSound(isShout); // تشغيل صوت الزراير
+                  i++;
+              } else {
+                  // خلصنا الجملة كلها بسلام
+                  clearInterval(state.typingTimer);
+                  resolve();
+              }
+          }, speed);
+      });
+  }
 
-    // ============= TEXT RENDERING =============
-    async function writeText(text, speed, element, isShout = false, pace = null) {
-        return new Promise((resolve) => {
-            element.textContent = "";
-            let i = 0;
-            const timer = setInterval(() => {
-                if (state.cancelTyping) {
-                    clearInterval(timer);
-                    state.cancelTyping = false;
-                    resolve();
-                    return;
-                }
-
-                if (i < text.length) {
-                    element.textContent += text[i];
-                    playTypeSound(isShout);
-                    i++;
-                } else {
-                    clearInterval(timer);
-                    resolve();
-                }
-            }, speed);
-        });
-    }
 
     async function typeEffect(text, speed = 14, pace = null, isShout = false) {
         state.isTyping = true;
@@ -928,13 +938,10 @@
     // ============= TIMER FUNCTIONS (KATANA ZERO STYLE) =============
     function startTimer(duration = 25) {
         clearInterval(timerInterval);
-        clearTimeout(timerTimeout);
-        clearTimeout(timerInterruptTimeout);
 
         state.timer.active = true;
         state.timer.startTime = Date.now();
         state.timer.duration = duration;
-        state.timer.interrupted = false;
         state.timer.timeout = false;
 
         timerBar.style.display = "block";
@@ -942,7 +949,6 @@
         timerFill.classList.remove("urgent");
 
         const urgentThreshold = duration * 0.2; // Last 20% is urgent
-        const interruptThreshold = duration * 0.5; // Can interrupt in first 50%
 
         timerInterval = setInterval(() => {
             const elapsed = (Date.now() - state.timer.startTime) / 1000;
@@ -951,114 +957,22 @@
 
             timerFill.style.width = progress + "%";
 
-            // Make timer urgent in last 20%
             if (remaining <= urgentThreshold && remaining > 0) {
                 timerFill.classList.add("urgent");
-                if (!state.timerSoundPlayed) {
-                    if (window.AudioManager) {
-                        window.AudioManager.playSound('interrupt');
-                    }
-                    state.timerSoundPlayed = true;
-                }
             }
 
-            // Check for timeout - CRITICAL: Stop interval immediately to prevent duplicate calls
             if (elapsed >= state.timer.duration) {
-                clearInterval(timerInterval); // BUG FIX: Clear immediately to prevent repeated fires
-                state.timer.timeout = true;
+                clearInterval(timerInterval);
                 stopTimer();
-                handleTimerTimeout();
             }
         }, 50);
-
-        // Allow interruption during first 50% of timer (can click during typing)
-        timerInterruptTimeout = setTimeout(() => {
-            // After interrupt window, show normal choices
-            if (state.isTyping) {
-                // Still typing - waiting for user to either interrupt or wait
-                document.addEventListener('keypress', handleTimerInterruptKeypress, { once: true });
-            }
-        }, interruptThreshold * 1000);
-    }
-
-    function handleTimerInterruptKeypress(event) {
-        if (!state.timer.active) return;
-        
-        // Only treat Enter/Spacebar as interrupt during typing
-        if (event.key === 'Enter' || event.key === ' ') {
-            handleTimerInterrupt();
-        }
-    }
-
-    function handleTimerInterrupt() {
-        if (!state.timer.active) return;
-
-        state.timer.interrupted = true;
-        state.cancelTyping = true;
-        stopTimer();
-
-        // Interrupt the typing
-        if (state.isTyping) {
-            textEl.classList.add("interrupted-text");
-            setTimeout(() => {
-                textEl.classList.remove("interrupted-text");
-            }, 300);
-        }
-
-        // Send interrupt signal to AI
-        sendTimerAction('interrupt');
-    }
-
-    function handleTimerTimeout() {
-        // BUG FIX: Add one-shot guard to prevent duplicate API calls
-        if (state.timer.timeout === 'sent') {
-            console.warn('Timer timeout already sent, ignoring duplicate call');
-            return;
-        }
-        
-        // Patient remained silent - send timeout signal
-        state.timer.timeout = 'sent'; // Mark as sent to prevent duplicates
-        sendTimerAction('timeout');
-    }
-
-    async function sendTimerAction(action) {
-        // Allow timeout and interrupt trigger calls even when the timer has already stopped
-        if (!state.timer.active && action !== 'interrupt' && action !== 'timeout') {
-            console.warn(`Timer action '${action}' received when timer not active, ignoring`);
-            return;
-        }
-
-        try {
-            const response = await fetch(`${API_BASE}/chat`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    userId: 'default',
-                    timerAction: action
-                })
-            });
-
-            if (response.ok) {
-                const aiResponse = await response.json();
-                await renderAIResponse(aiResponse);
-            }
-        } catch (error) {
-            console.error('Timer action error:', error);
-        }
     }
 
     function stopTimer() {
         clearInterval(timerInterval);
-        clearTimeout(timerTimeout);
-        clearTimeout(timerInterruptTimeout);
         timerBar.style.display = "none";
         state.timer.active = false;
         state.timer.timeout = false; // Reset for next timer
-        state.timerSoundPlayed = false;
-        document.removeEventListener('click', handleTimerInterrupt);
-        document.removeEventListener('keypress', handleTimerInterruptKeypress);
     }
 
     // ============= END SESSION FUNCTIONS =============
@@ -1126,9 +1040,10 @@
             btn.textContent = choiceText.toUpperCase();
             btn.dataset.choiceType = choiceType;
             btn.dataset.choiceSeverity = getChoiceSeverity(choiceText);
-            btn.disabled = false;
-            btn.style.cursor = "pointer";
-            btn.style.opacity = "1";
+            btn.disabled = true;
+            btn.style.cursor = "not-allowed";
+            btn.style.opacity = "0.6";
+            btn.title = "Choices will unlock when Alexa finishes speaking.";
 
             btn.onclick = async () => {
                 if (btn.disabled) return;
@@ -1164,33 +1079,6 @@
         });
     }
 
-    function renderInterruptChoices() {
-        choicesEl.innerHTML = "";
-        const interruptOptions = [
-            "Hurry up",
-            "I don't care",
-            "Stop wasting time"
-        ];
-
-        interruptOptions.forEach(option => {
-            const btn = document.createElement('button');
-            btn.className = 'choice bad';
-            btn.textContent = option.toUpperCase();
-            btn.onclick = async () => {
-                state.conversationHistory.push({ role: 'user', content: option });
-                playChoiceSound('bad');
-                state.cancelTyping = true;
-                stopTimer();
-                choicesEl.innerHTML = '';
-
-                const aiResponse = await sendToAI(null, option, 'interrupt');
-                applyVisualEffects(aiResponse);
-                updateBodyStyling(aiResponse);
-                await renderAIResponse(aiResponse);
-            };
-            choicesEl.appendChild(btn);
-        });
-    }
 
     function applyVisualEffects(aiResponse) {
         // Reset effects
@@ -1312,13 +1200,13 @@
         }
 
         startTimer(timerDuration);
-        renderInterruptChoices();
+        renderChoices(aiResponse.choices || [], aiResponse.mood);
+        setChoiceButtonsDisabled(true);
 
         const isShout = aiResponse.mood === 'angry' || aiResponse.mood === 'intense' || aiResponse.mood === 'challenging';
         state.cancelTyping = false;
         await typeEffect(aiResponse.message.toUpperCase(), 20, null, isShout);
 
-        renderChoices(aiResponse.choices || [], aiResponse.mood);
         setChoiceButtonsDisabled(false);
     }
 
