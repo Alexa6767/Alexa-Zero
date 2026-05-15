@@ -196,8 +196,11 @@ function generateSessionEndMessage(user) {
   return `Session Complete\n\nTake a moment to breathe. Reflect on what we've discussed.\n\nYour therapist's notes from this session:\n"${notes}"\n\nWhat would you like to do next?`;
 }
 
+
+
 function getResponseForRoom(room, user) {
   const node = therapyScript[room];
+  
   if (!node) {
     return {
       message: 'I am losing the thread. Let us return to the beginning.',
@@ -208,6 +211,8 @@ function getResponseForRoom(room, user) {
     };
   }
 
+  // التعديل هنا: بنرجع الداتا كاملة من السكريبت للموقع
+  // Continue to build the message and final response below
   let message = node.message;
   if (user.name) {
     message = message.replace(/\{name\}/g, user.name);
@@ -231,6 +236,7 @@ function getResponseForRoom(room, user) {
     choices: node.choices,
     mood: node.mood,
     effects: node.effects,
+    interrupts: node.interrupts || [],
     characterStage: node.characterStage || user.characterStage,
     requiresName: node.requiresName || false,
     currentRoom: room
@@ -288,18 +294,38 @@ app.post('/api/chat', (req, res) => {
       return res.json(getResponseForRoom('S1_START', user));
     }
 
-    // Handle timer interrupt (user clicked during Alexa's typing)
+// Handle timer interrupt (user clicked during Alexa's typing)
     if (timerAction === 'interrupt') {
       user.interruptCount = (user.interruptCount || 0) + 1;
-      const interruptRoom = interruptMappings[user.currentRoom] || user.currentRoom;
-      user.currentRoom = interruptRoom;
-      if (hostilityIncrements[interruptRoom]) {
-        user.memory.hostility_level = (user.memory.hostility_level || 0) + hostilityIncrements[interruptRoom];
+      
+      let nextRoom;
+      const scriptNode = therapyScript[user.currentRoom];
+      
+      // بنشوف هل الجلسة دي فيها اختيارات مقاطعة مخصصة؟
+      if (scriptNode && scriptNode.interrupts) {
+        // بندور على الاختيار اللي اليوزر داس عليه
+        const matchedInterrupt = scriptNode.interrupts.find(i => i.text === choiceText);
+        if (matchedInterrupt) {
+          nextRoom = matchedInterrupt.route; // يروح للرد المخصص
+        } else {
+          nextRoom = scriptNode.interrupts[0].route; // كاحتياطي لو حصلت لخبطة
+        }
+      } else {
+        // لو مفيش رد مخصص، يروح لغرفة مقاطعة عامة
+        nextRoom = 'DEFAULT_INTERRUPT'; 
       }
-      updateUserMemory(user, 'interrupt', interruptRoom);
+      
+      user.currentRoom = nextRoom;
+      user.memory.hostility_level = (user.memory.hostility_level || 0) + 1; // زيادة الغضب
+      
+      updateUserMemory(user, 'interrupt', nextRoom);
       saveUserData(userData);
-      return res.json(getResponseForRoom(interruptRoom, user));
+      return res.json(getResponseForRoom(nextRoom, user));
     }
+
+
+
+
 
     // Handle timer timeout (user did nothing, silence)
     if (timerAction === 'timeout') {
@@ -373,8 +399,12 @@ app.get('/health', (req, res) => {
   res.json({ status: 'OK', mode: 'local-script-only', scriptVersion: 'massive-branching-v1' });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`[Alexa-Zero] Massive branching script therapy server listening on port ${PORT}`);
-  console.log(`Loaded ${Object.keys(therapyScript).length} narrative rooms`);
-  console.log(`Room mappings: ${Object.keys(roomMappings).length} branches`);
-});
+if (require.main === module) {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`[Alexa-Zero] Massive branching script therapy server listening on port ${PORT}`);
+    console.log(`Loaded ${Object.keys(therapyScript).length} narrative rooms`);
+    console.log(`Room mappings: ${Object.keys(roomMappings).length} branches`);
+  });
+}
+
+module.exports = app;
