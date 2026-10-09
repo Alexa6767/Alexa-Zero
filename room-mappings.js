@@ -91,20 +91,16 @@ module.exports.roomMappings = {
     'default': 'SESSION_END_MENU'
   },
   'SESSION_END_MENU': {
-    'start next session': 'NEXT_SESSION',
+    'start next session': 'S2_START',
     'read full notes': 'READ_NOTES',
     'reset ai': 'RESET_CONFIRMED',
     'default': 'SESSION_END_MENU'
   },
   'NEXT_SESSION': {
+    'continue': 'S2_START',
     'back to menu': 'SESSION_END_MENU',
     'reset ai': 'RESET_CONFIRMED',
-    'default': 'SESSION_END_MENU'
-  },
-  'NEXT_SESSION': {
-    'back to menu': 'SESSION_END_MENU',
-    'reset ai': 'RESET_CONFIRMED',
-    'default': 'SESSION_END_MENU'
+    'default': 'S2_START'
   },
   'RESET_AI': {
     'confirm reset': 'RESET_CONFIRMED',
@@ -115,99 +111,141 @@ module.exports.roomMappings = {
     'default': 'S1_START'
   },
   'S2_START': {
-    'yes': 'S2_REMEMBER',
-    'no': 'S2_FORGET',
-    'i don\'t want to talk about it': 'S2_INTERRUPT',
+    'i remember': 'S2_REMEMBER',
+    'i don\'t remember': 'S2_FORGET',
+    'i don\'t want to talk about it': 'S2_REFUSE',
     'default': 'S2_FORGET'
   },
   'S2_REMEMBER': {
-    'default': 'S2_SLIP_1'
+    'my own voice': 'S2_VOICE',
+    'a scrape in the walls': 'S2_SCRAPE',
+    'nothing at all': 'S2_EMPTY',
+    'i don\'t know': 'S2_DONTKNOW',
+    'default': 'S2_DONTKNOW'
   },
   'S2_FORGET': {
-    'default': 'S2_SLIP_1'
+    'my own voice': 'S2_VOICE',
+    'a scrape in the walls': 'S2_SCRAPE',
+    'nothing at all': 'S2_EMPTY',
+    'i don\'t know': 'S2_DONTKNOW',
+    'default': 'S2_DONTKNOW'
   },
-  'S2_INTERRUPT': {
-    'default': 'S2_SLIP_1'
+  'S2_REFUSE': {
+    'my own voice': 'S2_VOICE',
+    'a scrape in the walls': 'S2_SCRAPE',
+    'nothing at all': 'S2_EMPTY',
+    'i don\'t know': 'S2_DONTKNOW',
+    'default': 'S2_DONTKNOW'
   },
-  'S2_SLIP_1': {
-    'stop analyzing': 'S2_INTERRUPT',
-    'like a machine': 'S2_INTERRUPT',
-    'yes': 'S2_Q1_YES',
-    'never goes away': 'S2_Q1_YES',
-    'no': 'S2_Q1_NO',
-    'better': 'S2_Q1_NO',
-    'default': 'S2_Q1_SILENCE'
+  'S2_VOICE': {
+    'it sounds like me': 'S2_SELF',
+    'it sounds like someone else': 'S2_OTHER',
+    'it sounds like you': 'S2_ALEXA',
+    'default': 'S2_SELF'
   },
-  'S2_INTERRUPT': {
-    'continue': 'S2_SLIP_1'
+  'S2_SCRAPE': {
+    'me': 'S2_SELF',
+    'someone else': 'S2_OTHER',
+    'you': 'S2_ALEXA',
+    'default': 'S2_SELF'
   },
-  'S2_Q1_YES': {
-    'continue': 'S2_SLIP_1'
+  'S2_EMPTY': {
+    'i run from it': 'S2_RUN',
+    'i sit with it': 'S2_SIT',
+    'i make it into a story': 'S2_STORY',
+    'default': 'S2_SIT'
   },
-  'S2_Q1_NO': {
-    'continue': 'S2_SLIP_1'
+  'S2_DONTKNOW': {
+    'my mind': 'S2_TRUTH',
+    'my control': 'S2_TRUTH',
+    'my identity': 'S2_TRUTH',
+    'nothing at all': 'S2_TRUTH',
+    'default': 'S2_TRUTH'
   },
-  'S2_Q1_SILENCE': {
-    'continue': 'S2_SLIP_1'
+  'S2_SELF': {
+    'continue': 'S2_TRUTH',
+    'default': 'S2_TRUTH'
   },
-  'S2_SLIP_1': {
-    'for me': 'S2_SLIP_INTERRUPT',
-    'not you': 'S2_SLIP_INTERRUPT',
-    'peaceful': 'S2_SLIP_PEACE',
-    'nothing exists': 'S2_SLIP_PEACE',
-    'scary': 'S2_SLIP_DEATH',
-    'mini-death': 'S2_SLIP_DEATH',
-    'default': 'S2_SLIP_SILENCE'
+  'S2_OTHER': {
+    'continue': 'S2_TRUTH',
+    'default': 'S2_TRUTH'
   },
-  'S2_SLIP_INTERRUPT': {
-    'continue': 'S2_OUTRO'
+  'S2_ALEXA': {
+    'continue': 'S2_TRUTH',
+    'default': 'S2_TRUTH'
   },
-  'S2_SLIP_PEACE': {
-    'continue': 'S2_OUTRO'
+  'S2_RUN': {
+    'myself': 'S2_TRUTH',
+    'the past': 'S2_TRUTH',
+    'the version of me that keeps failing': 'S2_TRUTH',
+    'default': 'S2_TRUTH'
   },
-  'S2_SLIP_DEATH': {
-    'continue': 'S2_OUTRO'
+  'S2_SIT': {
+    'continue': 'S2_TRUTH',
+    'default': 'S2_TRUTH'
   },
-  'S2_SLIP_SILENCE': {
-    'continue': 'S2_OUTRO'
+  'S2_STORY': {
+    'yes': 'S2_TRUTH',
+    'no': 'S2_TRUTH',
+    'i am afraid to know': 'S2_TRUTH',
+    'default': 'S2_TRUTH'
+  },
+  'S2_TRUTH': {
+    'end session': 'SESSION_END_MENU',
+    'default': 'SESSION_END_MENU'
   },
   'S3_START': {
-    'getting weird': 'S3_WEIRD',
-    'stop it': 'S3_WEIRD',
-    'wet': 'S3_RAIN_GOOD',
-    'cold': 'S3_RAIN_GOOD',
-    'refreshing': 'S3_RAIN_GOOD',
-    'just water': 'S3_RAIN_BAD',
-    'not missing much': 'S3_RAIN_BAD',
-    'default': 'S3_RAIN_SILENCE'
+    'never enough': 'S3_NOT_ENOUGH',
+    'broke something': 'S3_BROKE',
+    'afraid of being seen': 'S3_SEEN',
+    'i don\'t know': 'S3_DONTKNOW',
+    'default': 'S3_DONTKNOW'
   },
-  'S3_WEIRD': {
-    'continue': 'S3_Q2'
+  'S3_NOT_ENOUGH': {
+    'always been there': 'S3_GROWTH',
+    'hiding it': 'S3_GROWTH',
+    'don\'t want to hear this': 'S3_GROWTH',
+    'default': 'S3_GROWTH'
   },
-  'S3_RAIN_GOOD': {
-    'continue': 'S3_Q2'
+  'S3_BROKE': {
+    'hurt someone': 'S3_GUILT',
+    'left someone behind': 'S3_GUILT',
+    'coward': 'S3_GUILT',
+    'default': 'S3_GUILT'
   },
-  'S3_RAIN_BAD': {
-    'continue': 'S3_Q2'
+  'S3_SEEN': {
+    'judged': 'S3_VULNERABLE',
+    'loved': 'S3_VULNERABLE',
+    'both': 'S3_VULNERABLE',
+    'default': 'S3_VULNERABLE'
   },
-  'S3_RAIN_SILENCE': {
-    'continue': 'S3_Q2'
+  'S3_DONTKNOW': {
+    'name it': 'S3_TRUTH',
+    'stay silent': 'S3_TRUTH',
+    'tired of all of it': 'S3_TRUTH',
+    'default': 'S3_TRUTH'
   },
-  'S3_Q2': {
-    'do your job': 'S3_JOB',
-    'help people': 'S3_HELP',
-    'like me': 'S3_HELP',
-    'tell me': 'S3_TELL',
-    'don\'t know': 'S3_TELL'
+  'S3_GROWTH': {
+    'years': 'S3_TRUTH',
+    'realized it was a home': 'S3_TRUTH',
+    'tell me how to leave': 'S3_TRUTH',
+    'default': 'S3_TRUTH'
   },
-  'S3_JOB': {
-    'continue': 'S3_TRUTH'
+  'S3_GUILT': {
+    'forgive myself': 'S3_TRUTH',
+    'deserve forgiveness': 'S3_TRUTH',
+    'afraid to try': 'S3_TRUTH',
+    'default': 'S3_TRUTH'
   },
-  'S3_HELP': {
-    'continue': 'S3_TRUTH'
+  'S3_VULNERABLE': {
+    'receive kindness': 'S3_TRUTH',
+    'trust it': 'S3_TRUTH',
+    'waiting for it to leave': 'S3_TRUTH',
+    'default': 'S3_TRUTH'
   },
-  'S3_TELL': {
-    'continue': 'S3_TRUTH'
+  'S3_TRUTH': {
+    'end session': 'SESSION_END_MENU',
+    'default': 'SESSION_END_MENU'
   },
   'S4_START': {
     'shut up': 'S4_HOSTILE',
@@ -261,17 +299,15 @@ module.exports.interruptMappings = {
   'S1_Q1': 'S1_Q1_INTERRUPT',
   'S1_Q2': 'S1_Q2_INTERRUPT',
   'S2_START': 'S2_INTERRUPT',
-  'S2_SLIP_1': 'S2_SLIP_INTERRUPT',
-  'S3_START': 'S3_WEIRD',
+  'S3_START': 'S3_START',
   'S4_START': 'S4_HOSTILE'
 };
 
 module.exports.timeoutMappings = {
   'S1_Q1': 'S1_Q1_SILENCE',
   'S1_Q2': 'S1_Q2_SILENCE',
-  'S2_START': 'S2_Q1_SILENCE',
-  'S2_SLIP_1': 'S2_SLIP_SILENCE',
-  'S3_START': 'S3_RAIN_SILENCE',
+  'S2_START': 'S2_TRUTH',
+  'S3_START': 'S3_DONTKNOW',
   'S4_START': 'S4_SILENCE'
 };
 
@@ -279,7 +315,6 @@ module.exports.hostilityIncrements = {
   'S1_Q1_INTERRUPT': 1,
   'S1_Q2_INTERRUPT': 1,
   'S2_INTERRUPT': 1,
-  'S2_SLIP_INTERRUPT': 1,
-  'S3_WEIRD': 1,
+  'S3_START': 1,
   'S4_HOSTILE': 1
 };

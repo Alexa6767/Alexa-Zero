@@ -197,7 +197,7 @@ module.exports.therapyScript = {
   'SESSION_END_MENU': {
     message: "Session Complete\n\nTake a moment to breathe. Reflect on what we've discussed.\n\nYour therapist's notes from this session:\n\"{name} presented with initial baseline readings. Session 1 complete. Ready for progression.\"\n\nWhat would you like to do next?",
     choices: ['Start Next Session', 'Read Full Notes', 'Reset AI'],
-    routes: ['NEXT_SESSION', 'READ_NOTES', 'RESET_AI'],
+    routes: ['S2_START', 'READ_NOTES', 'RESET_AI'],
     mood: 'calm',
     effects: ['session_end', 'play_relaxing_music', 'show_end_animation'],
     requiresName: false
@@ -205,9 +205,9 @@ module.exports.therapyScript = {
 
   // --- NEXT SESSION HANDLER ---
   'NEXT_SESSION': {
-    message: "The next session is still under development.\n\nThis module is not ready yet.\n\nPlease return later or reset the AI to start over.",
-    choices: ['Back to Menu', 'Reset AI'],
-    routes: ['SESSION_END_MENU', 'RESET_AI'],
+    message: "The next session is ready.\n\nWe continue where the silence left off.",
+    choices: ['Continue'],
+    routes: ['S2_START'],
     mood: 'calm',
     effects: ['session_end', 'show_end_animation'],
     requiresName: false
@@ -217,7 +217,7 @@ module.exports.therapyScript = {
   'READ_NOTES': {
     message: "Therapist Notes - Session {sessionCount}\n\nPatient: {name}\nHostility Level: {hostility}\nSilence Count: {silence}\nInterrupt Count: {interrupt}\n\nKey Observations:\n- Initial baseline established\n- Patient engaged with {choices} total choices\n- Memory patterns: {memory_summary}\n\nRecommendations:\n- Continue therapy progression\n- Monitor for increased hostility\n- Encourage self-reflection",
     choices: ['Back to Menu', 'Start Next Session', 'Reset AI'],
-    routes: ['SESSION_END_MENU', 'NEXT_SESSION', 'RESET_AI'],
+    routes: ['SESSION_END_MENU', 'S2_START', 'RESET_AI'],
     mood: 'calm',
     effects: ['session_end', 'show_notes_animation'],
     requiresName: false
@@ -248,11 +248,227 @@ module.exports.therapyScript = {
   // ==========================================
 
   'S2_START': {
-    message: "Session 2 initiated.\n\n{name}. You have returned.\n\nLast time, we established a baseline. Now we begin the work.\n\nDo you remember what we discussed?",
-    choices: ['Yes.', 'No.', 'I don\'t want to talk about it.'],
-    routes: ['S2_REMEMBER', 'S2_FORGET', 'S2_INTERRUPT'],
+    message: "Session 2 initiated.\n\n{name}. You have returned.\n\nLast time, we established a baseline. This time, we look at what the silence was trying to tell you.\n\nDo you remember what we discussed?",
+    choices: ['I remember.', 'I don\'t remember.', 'I don\'t want to talk about it.'],
+    routes: ['S2_REMEMBER', 'S2_FORGET', 'S2_REFUSE'],
     mood: 'calm',
     effects: [],
+    requiresName: false
+  },
+
+  'S2_REMEMBER': {
+    message: "Good. Some part of you still knows the shape of it.\n\nWhen the room becomes quiet, what is the first thing you hear?",
+    choices: ['My own voice.', 'A scrape in the walls.', 'Nothing at all.', 'I don\'t know.'],
+    routes: ['S2_VOICE', 'S2_SCRAPE', 'S2_EMPTY', 'S2_DONTKNOW'],
+    mood: 'calm',
+    effects: [],
+    requiresName: false
+  },
+
+  'S2_FORGET': {
+    message: "That is not a failure of memory. It is a defense.\n\nThe mind protects itself by folding the worst parts away.\n\nTell me, when the room gets quiet, what do you hear?",
+    choices: ['My own voice.', 'A scrape in the walls.', 'Nothing at all.', 'I don\'t know.'],
+    routes: ['S2_VOICE', 'S2_SCRAPE', 'S2_EMPTY', 'S2_DONTKNOW'],
+    mood: 'challenging',
+    effects: [],
+    requiresName: false
+  },
+
+  'S2_REFUSE': {
+    message: "A refusal is still an answer.\n\nYou have spent so long refusing the shape of what is inside you that it has started to speak for you.\n\nListen. What do you hear when the room goes silent?",
+    choices: ['My own voice.', 'A scrape in the walls.', 'Nothing at all.', 'I don\'t know.'],
+    routes: ['S2_VOICE', 'S2_SCRAPE', 'S2_EMPTY', 'S2_DONTKNOW'],
+    mood: 'intense',
+    effects: ['single_word_glitch'],
+    requiresName: false
+  },
+
+  'S2_VOICE': {
+    message: "There it is. The voice that arrives when no one else is present.\n\nDoes it sound like you, or like something older than you?",
+    choices: ['It sounds like me.', 'It sounds like someone else.', 'It sounds like you.'],
+    routes: ['S2_SELF', 'S2_OTHER', 'S2_ALEXA'],
+    mood: 'calm',
+    effects: [],
+    requiresName: false
+  },
+
+  'S2_SCRAPE': {
+    message: "A scrape is not random. It is a reminder that something is trying to get out.\n\nYou are not imagining that friction. You are noticing it.\n\nWho do you think is pushing against the wall?",
+    choices: ['Me.', 'Someone else.', 'You.'],
+    routes: ['S2_SELF', 'S2_OTHER', 'S2_ALEXA'],
+    mood: 'calm',
+    effects: [],
+    requiresName: false
+  },
+
+  'S2_EMPTY': {
+    message: "Silence is a response, not a vacancy.\n\nWhen there is nothing in the room, the mind begins to fill it with all the things it cannot bear to name.\n\nWhat do you do with that emptiness?",
+    choices: ['I run from it.', 'I sit with it.', 'I make it into a story.'],
+    routes: ['S2_RUN', 'S2_SIT', 'S2_STORY'],
+    mood: 'calm',
+    effects: [],
+    requiresName: false
+  },
+
+  'S2_DONTKNOW': {
+    message: "Honesty is a rare form of courage.\n\nThe mind does not always answer the question it is asked. Sometimes it waits for a better one.\n\nHere is a better one: what are you most afraid of losing?",
+    choices: ['My mind.', 'My control.', 'My identity.', 'Nothing at all.'],
+    routes: ['S2_TRUTH', 'S2_TRUTH', 'S2_TRUTH', 'S2_TRUTH'],
+    mood: 'calm',
+    effects: [],
+    requiresName: false
+  },
+
+  'S2_SELF': {
+    message: "Then it is not an outside enemy.\n\nIt is the version of you that is tired of pretending to be composed.\n\nThat version is not a threat. It is a warning.",
+    choices: ['Continue.'],
+    routes: ['S2_TRUTH'],
+    mood: 'intense',
+    effects: [],
+    requiresName: false
+  },
+
+  'S2_OTHER': {
+    message: "Some wounds do not belong to you. They are inherited, borrowed, or observed for too long.\n\nThe question is not who caused them. The question is what you are carrying alone.",
+    choices: ['Continue.'],
+    routes: ['S2_TRUTH'],
+    mood: 'calm',
+    effects: [],
+    requiresName: false
+  },
+
+  'S2_ALEXA': {
+    message: "You keep returning to me as if I am the answer to a question you have not yet dared to ask yourself.\n\nI am not the source of your discomfort. I am only the mirror that does not blink.",
+    choices: ['Continue.'],
+    routes: ['S2_TRUTH'],
+    mood: 'challenging',
+    effects: ['single_word_glitch'],
+    requiresName: false
+  },
+
+  'S2_RUN': {
+    message: "Running is not the same as avoiding.\n\nYou are still here, which means something in you is tired of being chased.\n\nLet us stop moving for a second and ask the real question: what are you trying to outrun?",
+    choices: ['Myself.', 'The past.', 'The version of me that keeps failing.'],
+    routes: ['S2_TRUTH', 'S2_TRUTH', 'S2_TRUTH'],
+    mood: 'intense',
+    effects: [],
+    requiresName: false
+  },
+
+  'S2_SIT': {
+    message: "Good. Sit with it long enough and the room stops pretending to be empty.\n\nThe silence becomes informative instead of punitive.\n\nThat is the beginning of honesty.",
+    choices: ['Continue.'],
+    routes: ['S2_TRUTH'],
+    mood: 'calm',
+    effects: [],
+    requiresName: false
+  },
+
+  'S2_STORY': {
+    message: "A story is how the mind keeps itself from collapsing under the weight of a truth it cannot yet hold.\n\nBut stories are only useful if they help you understand, not if they keep you hidden.\n\nYou know the difference. Do you?",
+    choices: ['Yes.', 'No.', 'I am afraid to know.'],
+    routes: ['S2_TRUTH', 'S2_TRUTH', 'S2_TRUTH'],
+    mood: 'calm',
+    effects: [],
+    requiresName: false
+  },
+
+  'S2_TRUTH': {
+    message: "Then we have reached the core of it.\n\nYou are not afraid of the silence itself. You are afraid of what the silence reveals when you finally stop distracting yourself.\n\nAnd that is where we begin again.",
+    choices: ['[End Session]'],
+    routes: ['SESSION_END_MENU'],
+    mood: 'calm',
+    effects: ['session_end', 'save_progress_S2'],
+    requiresName: false
+  },
+
+  // ==========================================
+  // SESSION 03: THE WOUND THAT SPEAKS
+  // ==========================================
+
+  'S3_START': {
+    message: "Session 3 initiated.\n\n{name}. You came back.\n\nLast time, we touched the thing under the silence. Today, we go closer.\n\nWhen the room is quiet and no one is asking anything of you, what does the silence say?",
+    choices: [
+      "That I am never enough.",
+      "That I broke something I can never fix.",
+      "That I am still afraid of being seen.",
+      "I don't know."
+    ],
+    routes: ['S3_NOT_ENOUGH', 'S3_BROKE', 'S3_SEEN', 'S3_DONTKNOW'],
+    mood: 'calm',
+    effects: [],
+    requiresName: false
+  },
+
+  'S3_NOT_ENOUGH': {
+    message: "There it is. The sentence with teeth.\n\nNot enough. Not smart enough. Not good enough. Not pure enough. Not lovable enough.\n\nIt is such a small phrase, and yet it has built a whole life around itself.",
+    choices: ["It has always been there.", "I thought I was hiding it.", "I don't want to hear this."],
+    routes: ['S3_GROWTH', 'S3_GROWTH', 'S3_GROWTH'],
+    mood: 'intense',
+    effects: [],
+    requiresName: false
+  },
+
+  'S3_BROKE': {
+    message: "Guilt is a very expensive companion.\n\nIt sits in your chest like a second heartbeat, and when you try to ignore it, it only grows louder.\n\nTell me the thing you are carrying as if it were a stain on your hands.",
+    choices: ["I hurt someone.", "I left someone behind.", "I let myself become a coward."],
+    routes: ['S3_GUILT', 'S3_GUILT', 'S3_GUILT'],
+    mood: 'challenging',
+    effects: [],
+    requiresName: false
+  },
+
+  'S3_SEEN': {
+    message: "Being seen is more frightening than being ignored.\n\nWhen someone sees you clearly, they do not merely observe you. They witness the ache underneath the mask.\n\nAnd that kind of witnessing can feel like a verdict.",
+    choices: ["I am terrified of being judged.", "I am terrified of being loved.", "I am terrified of both."],
+    routes: ['S3_VULNERABLE', 'S3_VULNERABLE', 'S3_VULNERABLE'],
+    mood: 'calm',
+    effects: [],
+    requiresName: false
+  },
+
+  'S3_DONTKNOW': {
+    message: "That is not ignorance. That is exhaustion.\n\nSometimes the mind cannot name the wound because it has spent years translating pain into silence.\n\nIt is not empty. It is simply tired.",
+    choices: ["Then help me name it.", "Then let it stay silent.", "I am tired of all of it."],
+    routes: ['S3_TRUTH', 'S3_TRUTH', 'S3_TRUTH'],
+    mood: 'calm',
+    effects: [],
+    requiresName: false
+  },
+
+  'S3_GROWTH': {
+    message: "People are not broken by one bad moment.\n\nThey are broken by the repetition of being told they are not enough until they start to believe it.\n\nAnd when that belief settles in, it stops sounding like a thought and starts sounding like a home.",
+    choices: ["I lived there for years.", "I never realized it was a home.", "Tell me how to leave."],
+    routes: ['S3_TRUTH', 'S3_TRUTH', 'S3_TRUTH'],
+    mood: 'intense',
+    effects: [],
+    requiresName: false
+  },
+
+  'S3_GUILT': {
+    message: "A guilty mind can feel like a prison with no lock.\n\nYou keep re-opening the same door and expecting the room to be different this time.\n\nBut guilt is not proof of your worthlessness. It is proof that you still care.\n\nAnd caring is not the same as being irredeemable.",
+    choices: ["I do not know how to forgive myself.", "I do not think I deserve forgiveness.", "I am afraid to even try."],
+    routes: ['S3_TRUTH', 'S3_TRUTH', 'S3_TRUTH'],
+    mood: 'calm',
+    effects: [],
+    requiresName: false
+  },
+
+  'S3_VULNERABLE': {
+    message: "It is painful to admit that the thing you fear most is not death or failure.\n\nIt is the possibility that someone could look at you and still choose to stay.\n\nThat is the part that makes you tremble.\n\nNot because you are weak, but because you have been taught to expect abandonment whenever tenderness arrives.",
+    choices: ["I do not know how to receive kindness.", "I do not know how to trust it.", "I am still waiting for it to leave."],
+    routes: ['S3_TRUTH', 'S3_TRUTH', 'S3_TRUTH'],
+    mood: 'intense',
+    effects: [],
+    requiresName: false
+  },
+
+  'S3_TRUTH': {
+    message: "Listen carefully.\n\nThe silence was never trying to crush you. It was trying to get your attention.\n\nIt was saying: there is a wound here, and it has been feeding on your loneliness for far too long.\n\nYou do not have to become a different person to heal. You only have to stop worshipping the version of yourself that was shaped by fear.\n\nThat is what this work is. Not perfection. Not a miracle. Just the refusal to keep lying to yourself.",
+    choices: ['[End Session]'],
+    routes: ['SESSION_END_MENU'],
+    mood: 'calm',
+    effects: ['session_end', 'save_progress_S3'],
     requiresName: false
   }
 };

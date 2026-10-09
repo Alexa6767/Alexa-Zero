@@ -3,7 +3,7 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const { therapyScript } = require('./therapy-script');
-const { roomMappings, hostilityIncrements } = require('./room-mappings');
+const { roomMappings, interruptMappings, timeoutMappings, hostilityIncrements } = require('./room-mappings');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -73,6 +73,20 @@ function parseName(choiceText) {
     return trimmed;
   }
   return 'Patient';
+}
+
+function getTimeoutResponses() {
+  return [
+    'Yeah, sorry, please continue.',
+    'Fine.',
+    'I was listening.',
+    "Don't lecture me."
+  ];
+}
+
+function isTimeoutResumeChoice(choiceText = '') {
+  const value = (choiceText || '').toLowerCase();
+  return /yeah,? sorry|please continue|fine\.|i was listening|don't lecture me|shut up|whatever|not paying attention/i.test(value);
 }
 
 function updateUserMemory(user, choiceText, nextRoom) {
@@ -193,7 +207,7 @@ function generateSessionEndMessage(user) {
   user.memory.sessionNotes = user.memory.sessionNotes || [];
   user.memory.sessionNotes.push(notes);
 
-  return `Session Complete\n\nTake a moment to breathe. Reflect on what we've discussed.\n\nYour therapist's notes from this session:\n"${notes}"\n\nWhat would you like to do next?`;
+  return `A week later.\n\nThe next session has arrived.\n\nWhat would you like to do next?`;
 }
 
 
@@ -281,8 +295,40 @@ app.get('/', (req, res) => {
 
 app.post('/api/chat', (req, res) => {
   try {
-    const { userChoice, userId = 'default' } = req.body;
+    const { userChoice, userId = 'default', timerAction } = req.body;
     const user = getUser(userId);
+
+    if (timerAction === 'timeout') {
+      const resumeRoom = user.currentRoom || 'S1_START';
+      user.resumeRoom = resumeRoom;
+      user.lastTimeout = new Date().toISOString();
+      saveUserData(userData);
+
+      return res.json({
+        message: 'Silence or ignorance could never guide a lost soul. Neither can it fix a man\'s problems. May I start from where I left off? Just in case you were not paying attention.',
+        choices: getTimeoutResponses(),
+        mood: 'challenging',
+        effects: ['subtle_glitch'],
+        interrupts: [],
+        characterStage: user.characterStage || 'initial',
+        requiresName: false,
+        currentRoom: resumeRoom,
+        resumeRoom
+      });
+    }
+
+    if (user.resumeRoom && userChoice && isTimeoutResumeChoice(userChoice)) {
+      const resumeRoom = user.resumeRoom;
+      user.currentRoom = resumeRoom;
+      const rude = /don't lecture me|shut up|whatever|not paying attention/i.test(userChoice);
+      if (rude) {
+        user.memory = user.memory || {};
+        user.memory.hostility_level = (user.memory.hostility_level || 0) + 1;
+      }
+      delete user.resumeRoom;
+      saveUserData(userData);
+      return res.json(getResponseForRoom(resumeRoom, user));
+    }
 
     // First visit: show start screen
     if (user.sessionCount === 0) {
@@ -293,11 +339,6 @@ app.post('/api/chat', (req, res) => {
       saveUserData(userData);
       return res.json(getResponseForRoom('S1_START', user));
     }
-
-
-
-
-
 
     // No choice provided: return current room for existing user
     if (!userChoice) {
@@ -324,10 +365,27 @@ app.post('/api/chat', (req, res) => {
       return res.json(getResponseForRoom(nextRoom, user));
     }
 
+    // Explicit end-of-session continuation guard so the next session always launches reliably.
+    const normalizedChoice = (userChoice || '').trim();
+    if (/^start next session$/i.test(normalizedChoice) || /^continue$/i.test(normalizedChoice)) {
+      const nextSessionRoom = (user.sessionCount || 1) >= 2 ? 'S3_START' : 'S2_START';
+      user.currentRoom = nextSessionRoom;
+      user.sessionCount = nextSessionRoom === 'S3_START' ? 3 : 2;
+      user.lastSession = new Date().toISOString();
+      saveUserData(userData);
+      return res.json(getResponseForRoom(nextSessionRoom, user));
+    }
+
     // Normal choice routing
     const nextRoom = getNextRoom(user, userChoice, user.currentRoom);
     user.currentRoom = nextRoom;
     updateUserMemory(user, userChoice, nextRoom);
+
+    if (nextRoom === 'S2_START') {
+      user.sessionCount = 2;
+      user.lastSession = new Date().toISOString();
+    }
+
     saveUserData(userData);
 
     if (nextRoom === 'RESET_CONFIRMED') {

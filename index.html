@@ -535,11 +535,11 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: #000;
+            background: #050505;
             display: none;
             z-index: 1000;
             overflow: hidden;
-            color: #00ff88;
+            color: #ff0033;
             font-family: 'Press Start 2P', monospace;
         }
 
@@ -550,10 +550,10 @@
             width: 100%;
             height: 100%;
             background-image: 
-                radial-gradient(circle at 20% 80%, rgba(0, 255, 136, 0.1) 0%, transparent 50%),
-                radial-gradient(circle at 80% 20%, rgba(0, 255, 136, 0.1) 0%, transparent 50%),
-                radial-gradient(circle at 40% 40%, rgba(0, 255, 136, 0.05) 0%, transparent 50%);
-            opacity: 0.3;
+                radial-gradient(circle at 20% 80%, rgba(255, 0, 51, 0.14) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(255, 0, 51, 0.14) 0%, transparent 50%),
+                radial-gradient(circle at 40% 40%, rgba(255, 0, 51, 0.08) 0%, transparent 50%);
+            opacity: 0.7;
             pointer-events: none;
         }
 
@@ -567,8 +567,8 @@
                 0deg,
                 transparent,
                 transparent 2px,
-                rgba(0, 255, 136, 0.03) 2px,
-                rgba(0, 255, 136, 0.03) 4px
+                rgba(255, 0, 51, 0.04) 2px,
+                rgba(255, 0, 51, 0.04) 4px
             );
             pointer-events: none;
         }
@@ -579,29 +579,114 @@
             left: 50%;
             transform: translate(-50%, -50%);
             text-align: center;
-            color: #00ff88;
+            color: #ff0033;
             font-family: 'Press Start 2P', monospace;
             font-size: 12px;
-            max-width: 600px;
+            max-width: 650px;
             z-index: 10;
         }
 
         #end-session-title {
             font-size: 18px;
             margin-bottom: 20px;
-            text-shadow: 0 0 10px #00ff88;
+            text-shadow: 0 0 10px rgba(255, 0, 51, 0.8);
+            letter-spacing: 3px;
+            color: #ff4d68;
         }
 
         #end-session-notes {
-            background: rgba(0, 0, 0, 0.8);
-            padding: 20px;
-            border: 2px solid #00ff88;
+            background: rgba(0, 0, 0, 0.88);
+            padding: 30px 26px;
+            border: 2px solid #ff0033;
             border-radius: 0;
             margin-bottom: 30px;
             font-size: 10px;
-            line-height: 1.6;
-            box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
-            text-align: left;
+            line-height: 1.8;
+            box-shadow: 0 0 18px rgba(255, 0, 51, 0.24);
+            text-align: center;
+            min-height: 170px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .end-session-label {
+            font-size: 11px;
+            letter-spacing: 4px;
+            opacity: 0.9;
+            color: #ffbec7;
+        }
+
+        .end-session-main {
+            position: relative;
+            display: inline-block;
+            font-size: 25px;
+            letter-spacing: 2px;
+            min-height: 46px;
+            color: #ff244d;
+            text-shadow: 0 0 10px rgba(255, 0, 51, 0.4);
+        }
+
+        .end-session-glitch {
+            position: relative;
+            display: inline-block;
+            color: #ff2854;
+            text-shadow: 0 0 14px rgba(255, 0, 51, 0.8);
+            animation: glitchPulse 0.18s steps(2, end) 10;
+        }
+
+        .end-session-glitch::before,
+        .end-session-glitch::after {
+            content: attr(data-text);
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+        }
+
+        .end-session-glitch::before {
+            color: rgba(255, 0, 70, 0.9);
+            transform: translate(-2px, 1px);
+            clip-path: inset(0 0 58% 0);
+            animation: glitchBefore 0.12s steps(2, end) 10;
+        }
+
+        .end-session-glitch::after {
+            color: rgba(255, 140, 160, 0.75);
+            transform: translate(2px, -1px);
+            clip-path: inset(52% 0 0 0);
+            animation: glitchAfter 0.14s steps(2, end) 10;
+        }
+
+        @keyframes glitchPulse {
+            0% { transform: translate(0); filter: blur(0px); }
+            25% { transform: translate(-2px, 1px); filter: blur(0.2px); }
+            50% { transform: translate(2px, -1px); filter: blur(0.5px); }
+            75% { transform: translate(-1px, 0px); filter: blur(0.2px); }
+            100% { transform: translate(0); filter: blur(0px); }
+        }
+
+        @keyframes glitchBefore {
+            0% { transform: translate(0); }
+            25% { transform: translate(-3px, 1px); }
+            50% { transform: translate(1px, -1px); }
+            100% { transform: translate(0); }
+        }
+
+        @keyframes glitchAfter {
+            0% { transform: translate(0); }
+            25% { transform: translate(3px, -1px); }
+            50% { transform: translate(-1px, 1px); }
+            100% { transform: translate(0); }
+        }
+
+        .end-session-sub {
+            font-size: 9px;
+            line-height: 1.8;
+            opacity: 0.82;
+            max-width: 440px;
+            color: #ffccd5;
         }
 
         .end-menu-buttons {
@@ -613,24 +698,24 @@
 
         .end-menu-button {
             background: #000;
-            border: 2px solid #00ff88;
+            border: 2px solid #ff0033;
             padding: 15px 25px;
             font-family: 'Press Start 2P', monospace;
             font-size: 10px;
-            color: #00ff88;
+            color: #ff536e;
             cursor: pointer;
             transition: all 0.3s ease;
-            box-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+            box-shadow: 0 0 10px rgba(255, 0, 51, 0.2);
         }
 
         .end-menu-button:hover {
-            background: #00ff88;
+            background: #ff0033;
             color: #000;
-            box-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
+            box-shadow: 0 0 20px rgba(255, 0, 51, 0.5);
         }
 
         .end-menu-button:active {
-            background: #00ff88;
+            background: #ff0033;
             color: #000;
         }
     </style>
@@ -661,7 +746,6 @@
         <div id="end-session-notes"></div>
         <div class="end-menu-buttons">
             <button class="end-menu-button" data-choice="Start Next Session">START NEXT SESSION</button>
-            <button class="end-menu-button" data-choice="Read Full Notes">READ NOTES</button>
             <button class="end-menu-button" data-choice="Reset AI">RESET AI</button>
         </div>
     </div>
@@ -754,15 +838,34 @@
     });
 
     // ============= BACKEND COMMUNICATION =============
-    const API_BASE = '/api';
+    function resolveApiBase() {
+        const currentOrigin = window.location.origin || '';
+        const currentPort = window.location.port || '';
 
-    async function sendToAI(message = null, choice = null) {
+        if (!currentOrigin || currentOrigin === 'null' || currentOrigin === 'file://') {
+            return 'http://127.0.0.1:3001/api';
+        }
+
+        if (currentPort === '5500' || currentOrigin.includes(':5500')) {
+            return 'http://127.0.0.1:3001/api';
+        }
+
+        return `${currentOrigin}/api`;
+    }
+
+    const API_BASE = resolveApiBase();
+
+    async function sendToAI(message = null, choice = null, timerAction = null) {
         try {
             const bodyPayload = {
                 userMessage: message,
                 userChoice: choice,
                 userId: 'default'
             };
+
+            if (timerAction) {
+                bodyPayload.timerAction = timerAction;
+            }
 
             const response = await fetch(`${API_BASE}/chat`, {
                 method: 'POST',
@@ -936,11 +1039,33 @@
     }
 
     // ============= TIMER FUNCTIONS (KATANA ZERO STYLE) =============
+    async function handleTimerTimeout() {
+        if (state.timer.timeout) return;
+
+        state.timer.timeout = true;
+        state.timer.active = false;
+        clearInterval(timerInterval);
+        timerInterval = null;
+        setChoiceButtonsDisabled(true);
+        textEl.textContent = "PROCESSING...";
+
+        const timeoutResponse = await sendToAI(null, null, 'timeout');
+        timeoutResponse.effects = [];
+        timeoutResponse.mood = 'calm';
+        state.sessionData.characterStage = 'initial';
+        document.body.classList.remove('unstable', 'climax', 'glitch');
+
+        applyVisualEffects(timeoutResponse);
+        updateBodyStyling(timeoutResponse);
+        await renderAIResponse(timeoutResponse);
+    }
+
     function startTimer(duration = 25) {
         clearInterval(timerInterval);
 
+        const startedAt = Date.now();
         state.timer.active = true;
-        state.timer.startTime = Date.now();
+        state.timer.startTime = startedAt;
         state.timer.duration = duration;
         state.timer.timeout = false;
 
@@ -948,10 +1073,10 @@
         timerFill.style.width = "100%";
         timerFill.classList.remove("urgent");
 
-        const urgentThreshold = duration * 0.2; // Last 20% is urgent
+        const urgentThreshold = duration * 0.2;
 
         timerInterval = setInterval(() => {
-            const elapsed = (Date.now() - state.timer.startTime) / 1000;
+            const elapsed = (Date.now() - startedAt) / 1000;
             const remaining = Math.max(0, state.timer.duration - elapsed);
             const progress = (remaining / state.timer.duration) * 100;
 
@@ -961,41 +1086,85 @@
                 timerFill.classList.add("urgent");
             }
 
-            if (elapsed >= state.timer.duration) {
+            if (remaining <= 0) {
                 clearInterval(timerInterval);
-                stopTimer();
+                timerInterval = null;
+                state.timer.active = false;
+                handleTimerTimeout();
             }
         }, 50);
     }
 
     function stopTimer() {
         clearInterval(timerInterval);
+        timerInterval = null;
         timerBar.style.display = "none";
         state.timer.active = false;
-        state.timer.timeout = false; // Reset for next timer
+        if (!state.timer.timeout) {
+            state.timer.timeout = false;
+        }
     }
 
     // ============= END SESSION FUNCTIONS =============
     function showEndSessionScreen(aiResponse) {
         const screen = document.getElementById('end-session-screen');
         const notesDiv = document.getElementById('end-session-notes');
-        
-        // Display the full message as notes, prefixed with explanation
-        notesDiv.innerHTML = "<strong>These are Alexa's personal notes from this session, written based on your responses:</strong><br><br>" + aiResponse.message.replace(/\n/g, '<br>');
-        
+
+        notesDiv.innerHTML = `
+            <div class="end-session-label">SESSION COMPLETE</div>
+            <div class="end-session-main" data-text="A WEEK LATER"></div>
+            <div class="end-session-sub">The room is quiet again. The silence has shifted. You are ready for the next conversation.</div>
+        `;
+
+        const mainLine = notesDiv.querySelector('.end-session-main');
+        const subText = notesDiv.querySelector('.end-session-sub');
+        const typedText = 'A WEEK LATER';
+
         screen.style.display = 'block';
-        
-        // Start relaxing background music
+
+        let index = 0;
+        const typeInterval = setInterval(() => {
+            if (index < typedText.length) {
+                mainLine.textContent += typedText[index];
+                index += 1;
+                return;
+            }
+
+            clearInterval(typeInterval);
+            mainLine.classList.add('end-session-glitch');
+            mainLine.setAttribute('data-text', typedText);
+            subText.style.opacity = '1';
+
+            setTimeout(() => {
+                mainLine.classList.remove('end-session-glitch');
+                mainLine.setAttribute('data-text', typedText);
+                mainLine.textContent = typedText;
+            }, 2000);
+        }, 90);
+
         if (window.AudioManager && !window.AudioManager.isPlaying) {
             window.AudioManager.toggleMusic();
         }
-        
-        // Add button listeners
+
         document.querySelectorAll('.end-menu-button').forEach(btn => {
-            btn.onclick = () => {
+            btn.onclick = async () => {
                 const choice = btn.getAttribute('data-choice');
                 hideEndSessionScreen();
-                sendToAI(null, choice);
+
+                if (choice === 'Start Next Session') {
+                    const aiResponse = await sendToAI(null, 'start next session');
+                    await renderAIResponse(aiResponse);
+                    return;
+                }
+
+                if (choice === 'Reset AI') {
+                    await resetAI();
+                    location.reload();
+                    return;
+                }
+
+                const aiResponse = await sendToAI(null, choice);
+                await renderAIResponse(aiResponse);
             };
         });
     }
