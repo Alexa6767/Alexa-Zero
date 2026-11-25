@@ -150,3 +150,4 @@ body { min-height:100vh; min-height:100dvh; }
   #world-pad .pad-r button.act { grid-column:span 2; width:auto; }
 }
 @media (max-width:370px) { #world-pad .pad-r button { width:56px; height:54px; } #joy { width:120px; height:120px; } }
+#name-hint { font-family:'Press Start 2P',monospace; font-size:8px; line-height:1.6; color:#ff3355; text-align:center; margin-top:8px; opacity:0; transition:opacity .2s; pointer-events:none; letter-spacing:1px; }
