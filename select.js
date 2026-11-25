@@ -1,12 +1,12 @@
 /* Character select: two animated heroes on a stage. */
 (function () {
   const SEQ = [
-    ['idle', 1.7], ['run', 1.1], ['s1', 0.3], ['s2', 0.3], ['s3', 0.46], ['idle', 0.5], ['stab', 0.32], ['kick', 0.32], ['slide', 0.5], ['vic', 1.5]
+    ['idle', 1.7], ['run', 1.1], ['s1', 0.3], ['s2', 0.3], ['s3', 0.46], ['idle', 0.5], ['stab', 0.32], ['slide', 0.5], ['vic', 1.5]
   ];
   const TOTAL = SEQ.reduce((a, b) => a + b[1], 0);
   const DEFS = {
     m: { name: 'MALE', tag: 'MESSY HAIR. SWEATER VEST.<br>A KATANA HE IS TIRED OF CARRYING.' },
-    f: { name: 'FEMALE', tag: 'LONG HAIR. CARDIGAN VEST.<br>A KATANA SHE IS NOT TIRED OF.' }
+    f: { name: 'FEMALE', tag: 'LONG HAIR. WHITE DRESS.<br>A KATANA SHE IS NOT TIRED OF.' }
   };
   function pstate(time, sel) {
     const p = { face: 1, ph: time * 15, vx: 0, vy: 0, ground: true, run: false, stage: 1, slash: 0, atk: null, slideT: 0, vic: false, hurt: false, inv: 0, hist: [] };
@@ -14,7 +14,7 @@
     let tt = time % TOTAL, k = 'idle', u = 0, d = 1;
     for (const [n, dur] of SEQ) { if (tt < dur) { k = n; u = tt; d = dur; break; } tt -= dur; }
     if (k === 'run') { p.vx = 150; p.run = true; p.stage = u < 0.4 ? 1 : u < 0.8 ? 2 : 3; }
-    else if (['s1', 's2', 's3', 'stab', 'kick'].includes(k)) { p.atk = Object.assign({ type: k }, Sprites.ATK[k]); p.slash = d - u; }
+    else if (['s1', 's2', 's3', 'stab'].includes(k)) { p.atk = Object.assign({ type: k }, Sprites.ATK[k]); p.slash = d - u; }
     else if (k === 'slide') { p.slideT = d - u; }
     else if (k === 'vic') p.vic = true;
     return p;
