@@ -53,6 +53,8 @@
     j: 'slash', x: 'slash', z: 'slash', k: 'stab', s: 'slide', c: 'slide', arrowdown: 'slide',
     e: 'act', enter: 'act'
   };
+  let autoRun = false; // phone RUN button: tap on = keep running, tap again = walk
+  function setRunBtn() { const rb = ui.querySelector('#world-pad button[data-k="run"]'); if (rb) rb.classList.toggle('on', autoRun); }
   function setKey(k, v) {
     if (k === 'act') { if (v) pressed.act = true; return; }
     if ((k === 'jump' || k === 'slash' || k === 'stab' || k === 'slide') && v && !keys[k]) pressed[k] = true;
@@ -77,8 +79,8 @@
   window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
   ui.querySelectorAll('#world-pad button').forEach(b => {
     const k = b.dataset.k;
-    const down = (e) => { e.preventDefault(); setKey(k, true); b.classList.add('on'); };
-    const up = (e) => { e.preventDefault(); if (k !== 'act') setKey(k, false); b.classList.remove('on'); };
+    const down = (e) => { e.preventDefault(); if (k === 'run') { autoRun = !autoRun; b.classList.toggle('on', autoRun); return; } setKey(k, true); b.classList.add('on'); };
+    const up = (e) => { e.preventDefault(); if (k === 'run') return; if (k !== 'act') setKey(k, false); b.classList.remove('on'); };
     b.addEventListener('pointerdown', down); b.addEventListener('pointerup', up);
     b.addEventListener('pointerleave', up); b.addEventListener('pointercancel', up);
   });
@@ -170,6 +172,7 @@
     return { x, y: GY, vx: 0, vy: 0, face: 1, ground: true, ph: 0, slash: 0, slashCd: 0, run: false, inv: 0, hist: [], dust: 0, hitDone: false, coyote: 0, atk: null, combo: 0, comboT: 0, slideT: 0, slideCd: 0, airDashed: false, hurtT: 0, vic: false, stage: 0 };
   }
   function setup(scene, o) {
+    autoRun = false; setRunBtn();
     W = Object.assign({
       scene, t: 0, cam: 0, p: newPlayer(o.spawn || 120), parts: [], busy: false, last: performance.now(), raf: 0,
       msgTimer: null, entering: false, msgUntil: 0, lightsOut: 0, stalkerFlicker: 0, done: false
@@ -221,7 +224,7 @@
       o.lives = key ? 4 : 3; o.maxLives = o.lives;
     }
     setup(kind, o);
-    if (kind === 'chase') showMsg('Hold RUN until you are at full speed. Jump the crates. Slash the glitch walls. Reach the server.', 5000);
+    if (kind === 'chase') showMsg('Tap RUN once and keep running (Shift on keyboard). Jump the crates. Slash the glitch walls. Reach the server.', 5000);
     else showMsg(BOSS_LINES.start, 4200);
     Audio2().glitch && Audio2().glitch();
   }
@@ -473,17 +476,19 @@
 
   /* ---------- player update ---------- */
   function updatePlayer(dt) {
-    const p = W.p, canAct = !W.entering && !W.done && !W.paused && !(W.scene === 'arena' && W.boss.dead) && !(W.caught > 0);
+    const p = W.p, canAct = !W.entering && !W.done && !W.paused && !(W.scene === 'arena' && W.boss.dead) && !(W.caught > 0) && !(W.scare > 0);
     const A = Sprites.ATK;
-    const dir = canAct ? (keys.right ? 1 : 0) - (keys.left ? 1 : 0) : 0;
+    let dir = canAct ? (keys.right ? 1 : 0) - (keys.left ? 1 : 0) : 0;
+    if (canAct && autoRun && W.scene === 'chase' && dir === 0) dir = 1; // chase: auto-run keeps going forward by itself
     const dashing = p.atk && p.atk.type === 'dash' && p.slash > 0;
-    p.run = keys.run && dir !== 0;
+    const runOn = keys.run || autoRun;
+    p.run = runOn && dir !== 0;
     let grace = false;
     if (p.run) {
       if (p.lastDir && dir === -p.lastDir) p.vx = dir * Math.abs(p.vx); // instant turn, keep the speed
       p.runT = (p.runT || 0) + dt; p.lastDir = dir; p.gr = null;
     } else if (!(p.slideT > 0)) {
-      if (keys.run && dir === 0 && p.runT > 0 && ((p.gr = (p.gr == null ? 0.15 : p.gr) - dt) > 0)) grace = true;
+      if (runOn && dir === 0 && p.runT > 0 && ((p.gr = (p.gr == null ? 0.15 : p.gr) - dt) > 0)) grace = true;
       else { p.runT = 0; p.lastDir = 0; }
     }
     p.runDir = dir;
@@ -602,6 +607,9 @@
         if (s.kind === 'wall' && !s.dead && s.x > b.x1 - 8 && s.x < b.x2 + 8) { s.dead = true; spark(s.x, GY - 20, 22, '#4fffd8', 140); Audio2().error && Audio2().error(); }
       });
     }
+    if (W.scare > 0) { W.scare -= dt; if (W.scare <= 0) scareRecover(); return; }
+    updateApps(dt);
+    if (W.scare > 0) return;
     const dist = Math.max(0, p.x);
     m.x += (140 + Math.min(32, dist / 90)) * m.speed * dt * (W.caught > 0 ? 0 : 1);
     if (W.caught > 0) { W.caught -= dt; if (W.caught <= 0) rewind(); return; }
@@ -609,10 +617,61 @@
       W.caught = 1.4; Horror.flash('CAUGHT', 900); Audio2().error && Audio2().error(); spark(p.x, p.y - 14, 26, '#000', 100);
     }
   }
+  /* ---- Sweeper apparitions down the hallway ---- */
+  const APP_X = [610, 1135, 1390, 1850, 2405, 2780];
+  function updateApps(dt) {
+    const p = W.p;
+    if (!W.apps) W.apps = APP_X.map(x => ({ x, ph: 'idle', t: 0, stay: false, here: true }));
+    W.dark = 0;
+    const vis = Math.min(330, canvas.width / scaleOf() / 2 - 20); // start only once it is on screen
+    W.apps.forEach(a => {
+      const d = a.x - p.x;
+      if (a.ph === 'idle' && d < vis && d > 0) { a.ph = 'flicker'; a.t = 0; a.stay = Math.random() < 0.1; }
+      else if (a.ph === 'seen') { a.t += dt; if (d < 190) { a.ph = 'flicker'; a.t = 0; a.stay = Math.random() < 0.1; } }
+      else if (a.ph === 'flicker') { a.t += dt; if (a.t > 0.25) { a.ph = 'dark'; a.t = 0; if (!a.stay) { a.here = false; Audio2().glitch && Audio2().glitch(); } } }
+      else if (a.ph === 'dark') { a.t += dt; if (a.t > 0.45) { a.ph = 'lit'; a.t = 0; } }
+      else if (a.ph === 'lit') { if (p.x > a.x + 40 || !a.here) { a.ph = 'done'; } }
+      if (a.ph === 'flicker' || a.ph === 'dark') W.dark = Math.max(W.dark, a.ph === 'dark' ? 0.84 : (Math.sin(a.t * 60) > 0 ? 0.88 : 0.1));
+      // a standing Sweeper can be cut down with a slash (fair play)
+      if (a.here && a.ph !== 'idle' && a.ph !== 'done' && p.slashActive) {
+        const b = slashBox(); if (a.x > b.x1 - 8 && a.x < b.x2 + 8) { a.here = false; spark(a.x, GY - 30, 24, '#ff3355', 140); Audio2().error && Audio2().error(); }
+      }
+      // touching it = jumpscare
+      if (a.here && (a.ph === 'flicker' || a.ph === 'dark' || a.ph === 'lit') && Math.abs(p.x - a.x) < 13 && p.y > GY - 20 && !W.done) { a.here = false; a.ph = 'done'; startScare(a); }
+    });
+  }
+  function startScare(a) {
+    W.scare = 1.15; W.scareSite = a.x;
+    let el = document.getElementById('jumpscare');
+    if (!el) {
+      el = document.createElement('div'); el.id = 'jumpscare';
+      const c = document.createElement('canvas'); c.width = 64; c.height = 64; el.appendChild(c); document.body.appendChild(el);
+      const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
+      g.fillStyle = '#000'; g.fillRect(0, 0, 64, 64);
+      g.fillStyle = '#16060a'; g.fillRect(10, 4, 44, 56); g.fillRect(6, 14, 52, 36);
+      g.fillStyle = '#000'; g.fillRect(14, 8, 36, 12);
+      g.fillStyle = '#fff'; g.fillRect(14, 22, 14, 10); g.fillRect(36, 22, 14, 10);
+      g.fillStyle = '#ff0030'; g.fillRect(19, 24, 5, 6); g.fillRect(41, 24, 5, 6);
+      g.fillStyle = '#000'; g.fillRect(14, 36, 36, 20);
+      g.fillStyle = '#e8e0d8'; for (let i = 0; i < 9; i++) { g.fillRect(15 + i * 4, 36, 3, 6 + (i % 2) * 4); g.fillRect(15 + i * 4, 50 - (i % 2) * 3, 3, 6 + (i % 2) * 3); }
+      g.fillStyle = '#ff0030'; g.fillRect(16, 44, 32, 2);
+    }
+    el.style.display = 'flex'; el.classList.remove('go'); void el.offsetWidth; el.classList.add('go');
+    Audio2().error && Audio2().error(); Audio2().glitch && Audio2().glitch();
+    try { navigator.vibrate && navigator.vibrate([60, 40, 120]); } catch (_) {}
+    setTimeout(() => { const e2 = document.getElementById('jumpscare'); if (e2) e2.style.display = 'none'; }, 1000);
+  }
+  function scareRecover() {
+    // after the scare: set back about 420px, push the chaser back, re-arm the sites ahead (not the one that scared)
+    const p = W.p, back = Math.max(70, (W.scareSite || p.x) - 420);
+    W.p = newPlayer(back); W.mon.x = Math.min(W.mon.x, back - 380);
+    W.apps.forEach(a => { if (a.x !== W.scareSite) { if (a.x > back) { a.ph = 'idle'; a.here = true; a.stay = false; } } else { a.ph = 'done'; a.here = false; } });
+    showMsg('It lets go. Keep running.', 2200);
+  }
   function rewind() {
     W.p = newPlayer(70); W.mon.x = -200; W.t = 0;
-    W.solids.forEach(s => { s.dead = false; });
-    showMsg('Rewind. Hold RUN. It does not get tired.', 3000);
+    W.solids.forEach(s => { s.dead = false; }); W.apps = null; W.scare = 0;
+    showMsg('Rewind. Keep running. It does not get tired.', 3000);
   }
 
   function updateArena(dt) {
@@ -883,6 +942,27 @@
         for (let k = 0; k < 5; k++) rect(x - 30 - k * 8, 80 + hash(k + Math.floor(W.t * 12)) * 56, 8 + hash(k) * 12, 2, 'rgba(255,0,48,0.6)');
       }
     }
+    drawApps(vw);
+  }
+
+  function drawApps(vw) {
+    if (!W.apps) return;
+    const cam = W.cam;
+    W.apps.forEach(a => {
+      if (a.ph === 'idle' || a.ph === 'done') return;
+      const x = a.x - cam; if (x < -60 || x > vw + 60) return;
+      const lampOn = a.ph === 'seen' || a.ph === 'lit' || (a.ph === 'flicker' && Math.sin(a.t * 50) > 0);
+      if (lampOn) {
+        ctx.save(); const gr = ctx.createRadialGradient(R(x), 34, 2, R(x), 100, 90); gr.addColorStop(0, 'rgba(255,230,200,0.38)'); gr.addColorStop(1, 'rgba(255,230,200,0)'); ctx.fillStyle = gr; ctx.fillRect(R(x - 100), 0, 200, 180); ctx.restore();
+        rect(x - 10, 26, 20, 3, '#e8d8c8');
+      } else rect(x - 10, 26, 20, 3, '#2a2420');
+      if (a.here && !(a.ph === 'flicker' && Math.sin(a.t * 50) < -0.6)) {
+        const wob = Math.sin(W.t * 5) * 0.6;
+        rect(x - 8, 84 + wob, 16, 56, '#000'); rect(x - 10, 72 + wob, 20, 14, '#000'); rect(x - 14, 92 + wob, 5, 34, '#000'); rect(x + 9, 92 + wob, 5, 34, '#000');
+        rect(x - 5, 77 + wob, 3, 3, '#ff0030'); rect(x + 2, 77 + wob, 3, 3, '#ff0030');
+      }
+    });
+    if (W.dark > 0) { ctx.save(); ctx.globalAlpha = W.dark; ctx.fillStyle = '#000'; ctx.fillRect(0, 0, vw, VH); ctx.restore(); }
   }
 
   function drawArena(vw, d) {
