@@ -5,8 +5,8 @@
   ];
   const TOTAL = SEQ.reduce((a, b) => a + b[1], 0);
   const DEFS = {
-    m: { name: 'MALE', tag: 'MESSY HAIR. SWEATER VEST.<br>A KATANA HE IS TIRED OF CARRYING.' },
-    f: { name: 'FEMALE', tag: 'LONG HAIR. WHITE DRESS.<br>A KATANA SHE IS NOT TIRED OF.' }
+    m: { name: 'MALE', tag: 'BLUE SCARF. DARK HAIR.<br>A KATANA HE IS TIRED OF CARRYING.' },
+    f: { name: 'FEMALE', tag: 'RED SCARF. DARK HAIR.<br>A KATANA SHE IS NOT TIRED OF.' }
   };
   function pstate(time, sel) {
     const p = { face: 1, ph: time * 15, vx: 0, vy: 0, ground: true, run: false, stage: 1, slash: 0, atk: null, slideT: 0, vic: false, hurt: false, inv: 0, hist: [] };
