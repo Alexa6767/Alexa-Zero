@@ -77,3 +77,9 @@ body.is-paused #world-pad { display:none !important; }
 #world-pad .pad-r { gap:10px 9px; margin-bottom:22px; margin-right:2px; }
 #world-pad .pad-r button { width:46px; height:38px; }
 @media (max-height:520px) and (orientation:landscape) { #world-pad .pad-r { gap:8px; margin-bottom:12px; } }
+#atmo { position:fixed; inset:0; width:100%; height:100%; z-index:-2; image-rendering:pixelated; opacity:.62; pointer-events:none; }
+#atmo::after { content:''; }
+body #box { background:rgba(9,7,13,.74); backdrop-filter:blur(1.5px); -webkit-backdrop-filter:blur(1.5px); }
+body.circus #box { background:rgba(42,15,74,.78); }
+#box.crt-on { animation:crtOn .7s ease-out; }
+@keyframes crtOn { 0% { transform:translate(-50%,-50%) scale(1,.004); filter:brightness(4); } 55% { transform:translate(-50%,-50%) scale(1,.06); filter:brightness(3); } 100% { transform:translate(-50%,-50%) scale(1,1); filter:brightness(1); } }
