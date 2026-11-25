@@ -32,7 +32,7 @@
   ui.innerHTML =
     '<div id="world-hint"></div><div id="world-msg"></div><div id="world-frags"></div><div id="world-hp"></div>' +
     '<div id="world-pad"><div class="pad-l"><div id="joy"><div id="joy-knob"></div></div></div>' +
-    '<div class="pad-r"><button data-k="run">RUN</button><button data-k="jump">JUMP</button><button data-k="slash">SLASH</button><button data-k="stab">STAB</button><button data-k="slide">SLIDE</button><button data-k="act" class="act">ACT</button></div></div>';
+    '<div class="pad-r"><button data-k="run">RUN</button><button data-k="jump">JUMP</button><button data-k="slash">SLASH</button><button data-k="slide">SLIDE</button><button data-k="act" class="act">ACT</button></div></div>';
   document.body.appendChild(ui);
   const hintEl = ui.querySelector('#world-hint'), msgEl = ui.querySelector('#world-msg'),
         fragEl = ui.querySelector('#world-frags'), hpEl = ui.querySelector('#world-hp');
@@ -243,13 +243,19 @@
     for (const k in keys) keys[k] = false;
     hintEl.textContent = ''; msgEl.style.display = 'none';
     const sess = (W.st && W.st.session) || 1, nm = String((W.st && W.st.name) || '').slice(0, 14);
-    const dur = { walk: 3.0, sit: 1.2, hold: 1.1, zoom: 3.0, flash: 0.45 };
-    const T0 = 0.5, T1 = T0 + dur.walk, T2 = T1 + 0.2 + dur.sit, T3 = T2 + dur.hold, T4 = T3 + dur.zoom, T5 = T4 + dur.flash;
+    const dur = { walk: 3.2, sit: 1.0, hold: 0.7, zoom: 6.0, flash: 0 };
+    const T0 = 0.5, T1 = T0 + dur.walk, T2 = T1 + 0.1 + dur.sit, T3 = T2 + dur.hold, T4 = T3 + dur.zoom, T5 = T4 + dur.flash;
     const p = { x: 0, y: GY, vx: 0, vy: 0, face: 1, ground: true, ph: 0, run: false, stage: 0, slash: 0, atk: null, slideT: 0, vic: false, hurt: false, inv: 0, hist: [], landT: 0, hurtT: 0 };
     let t = 0, last = performance.now(), fin = false, raf = 0, sitDone = false;
     const ease = (u) => u < 0 ? 0 : u > 1 ? 1 : u * u * (3 - 2 * u);
     const ease2 = (u) => u < 0 ? 0 : u > 1 ? 1 : (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2);
-    const finish = () => { if (fin) return; fin = true; cancelAnimationFrame(raf); window.removeEventListener('keydown', skip, true); canvas.removeEventListener('pointerdown', skip2, true); canvas.style.opacity = '1'; leave(() => { done && done(); }); };
+    const finish = () => { if (fin) return; fin = true; cancelAnimationFrame(raf); window.removeEventListener('keydown', skip, true); canvas.removeEventListener('pointerdown', skip2, true); canvas.style.opacity = '1';
+      const ov = document.createElement('canvas'); ov.width = canvas.width; ov.height = canvas.height; ov.getContext('2d').drawImage(canvas, 0, 0);
+      ov.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;z-index:60;pointer-events:none;image-rendering:pixelated;opacity:1;transition:opacity 1.3s ease-in .35s,filter 1.3s ease-in .35s;filter:brightness(1) blur(0px)';
+      document.body.appendChild(ov);
+      leave(() => { done && done(); const b = document.getElementById('box'); if (b) { b.classList.remove('crt-on'); void b.offsetWidth; b.classList.add('crt-on'); } });
+      requestAnimationFrame(() => requestAnimationFrame(() => { ov.style.opacity = '0'; ov.style.filter = 'brightness(1.6) blur(2px)'; }));
+      setTimeout(() => ov.remove(), 2000); };
     const skip = (e) => { if (t > 1.2 && (e.code === 'Enter' || e.code === 'Space' || e.code === 'Escape')) { e.preventDefault(); t = Math.max(t, T4 - 0.05); } };
     const skip2 = () => { if (t > 1.2) t = Math.max(t, T4 - 0.05); };
     window.addEventListener('keydown', skip, true); canvas.addEventListener('pointerdown', skip2, true);
@@ -258,12 +264,12 @@
       const dt = Math.min(0.05, (now - last) / 1000); last = now;
       if (!(W && W.paused)) t += dt;
       const s = scaleOf(), oy = (canvas.height - VH * s) / 2, vw = canvas.width / s, cx = vw / 2;
-      const chairX = cx - 14, scr = { x: cx + 36, y: 80, w: 32, h: 22 };
+      const chairX = cx - 44, scr = { x: cx + 36, y: 80, w: 32, h: 22 };
       // character
       let sitY = 0;
       if (t < T0) { p.x = cx - 175; p.vx = 0; }
-      else if (t < T1) { const u = (t - T0) / dur.walk; p.x = lerp(cx - 175, chairX, u); p.vx = 62; p.ph += dt * 8.5; }
-      else { p.x = chairX; p.vx = 0; const u = clamp((t - T1 - 0.2) / dur.sit, 0, 1); p.landT = u <= 0 ? 0 : Math.max(0.004, 0.13 * (1 - u)); sitY = ease(u) * 5.5; if (u >= 1 && !sitDone) { sitDone = true; Audio2().tick && Audio2().tick(); } }
+      else if (t < T1) { const u = (t - T0) / dur.walk; p.x = lerp(cx - 175, cx + 2, ease(u * 0.6 + 0.4 * u)); p.vx = 62; p.ph += dt * 8.5; }
+      else { p.x = cx + 2; p.vx = 0; p.face = 1; if (!sitDone) { sitDone = true; Audio2().tick && Audio2().tick(); } }
       p.y = GY + sitY;
       // camera zoom
       const zu = ease2((t - T3) / dur.zoom), Zmax = Math.min(vw / scr.w, VH / scr.h) * 0.95, Z = 1 + (Zmax - 1) * Math.pow(zu, 1.6);
@@ -286,7 +292,7 @@
       // shelf
       { const x = cx + 80; rect(x, 56, 44, 2, '#2a1a1e'); [['#5a1020', 8], ['#203a5a', 6], ['#4a4a20', 7], ['#2a2a2a', 5], ['#6a2a2a', 6]].reduce((a, b) => { rect(x + 2 + a, 46, b[1], 10, b[0]); return a + b[1] + 1; }, 0); rect(x + 36, 50, 6, 6, '#d8d0c0'); }
       // chair back (behind him)
-      rect(chairX - 14, 94, 4, 28, '#1a1216'); rect(chairX - 16, 92, 8, 4, '#2a1c22');
+      rect(chairX - 14, 94, 4, 28, '#1a1216'); rect(chairX - 16, 92, 8, 4, '#2a1c22'); rect(chairX - 14, 121, 26, 4, '#2a1c22'); rect(chairX - 14, 125, 26, 1, '#0a0608'); rect(chairX - 2, 126, 3, 12, '#1a1216'); rect(chairX - 10, 138, 18, 2, '#1a1216');
       // desk
       rect(cx + 14, 108, 82, 4, '#3a2630'); rect(cx + 14, 112, 82, 2, '#1a0e14'); rect(cx + 18, 114, 4, 26, '#241519'); rect(cx + 88, 114, 4, 26, '#241519'); rect(cx + 24, 114, 60, 18, '#150c10'); rect(cx + 26, 118, 56, 1, '#2a1a20'); rect(cx + 50, 122, 6, 2, '#6a5a50');
       // lamp light
@@ -300,19 +306,28 @@
       const on = t > T2 - 0.4, flick = on ? 0.82 + 0.18 * Math.sin(t * 40) : 0;
       rect(scr.x, scr.y, scr.w, scr.h, on ? '#021a12' : '#050808');
       if (on) {
-        ctx.globalAlpha = flick; ctx.fillStyle = '#2fffa0'; ctx.font = '3px "Press Start 2P", monospace'; ctx.textBaseline = 'top';
-        const lines = ['NAME: ' + (nm.slice(0, 7) || 'none'), 'SESSION ' + String(sess).padStart(2, '0'), '> connecting', '> she listens'];
-        const shown = Math.min(lines.length, Math.floor((t - (T2 - 0.4)) * 2.2) + 1);
-        for (let i = 0; i < shown; i++) ctx.fillText(lines[i], scr.x + 2, scr.y + 2 + i * 5);
-        if (Math.floor(t * 3) % 2) ctx.fillRect(scr.x + 2, scr.y + 2 + shown * 5, 3, 3);
-        ctx.globalAlpha = 0.25; ctx.fillStyle = '#000'; for (let y = scr.y; y < scr.y + scr.h; y += 2) ctx.fillRect(scr.x, y, scr.w, 1);
+        ctx.save(); ctx.beginPath(); ctx.rect(scr.x, scr.y, scr.w, scr.h); ctx.clip(); ctx.globalAlpha = flick; ctx.fillStyle = '#2fffa0'; ctx.font = '2px "Press Start 2P", monospace'; ctx.textBaseline = 'top';
+        const cols = 10, rows = 8, cw = scr.w / cols, rh = scr.h / rows, on0 = Math.min(1, (t - (T2 - 0.4)) * 1.5), pulse = 0.75 + 0.25 * Math.sin(t * 5);
+        ctx.font = Math.max(1.6, cw * 0.95).toFixed(2) + 'px "Press Start 2P", monospace'; ctx.textBaseline = 'top';
+        for (let c = 0; c < cols; c++) {
+          const sp = 3 + hash(c * 5.3) * 5, off = hash(c * 9.1) * rows * 2, head = ((t * sp + off) % (rows * 2)) - rows * 0.4;
+          for (let r = 0; r < rows; r++) {
+            const d = head - r; if (d < 0 || d > rows * 0.9) continue;
+            const bit = hash(c * 31 + r * 7 + Math.floor(t * (4 + c % 3))) > 0.5 ? '1' : '0', k = 1 - d / (rows * 0.9);
+            ctx.globalAlpha = on0 * pulse * (d < 1 ? 1 : 0.2 + 0.75 * k);
+            ctx.fillStyle = d < 1 ? '#d8fff0' : '#2fffa0';
+            ctx.fillText(bit, scr.x + c * cw + cw * 0.1, scr.y + r * rh + 0.2);
+          }
+        }
+        if (hash(Math.floor(t * 9) + 3) > 0.86) { const gy = scr.y + hash(Math.floor(t * 9)) * (scr.h - 3); ctx.globalAlpha = 0.5; ctx.fillStyle = '#2fffa0'; ctx.fillRect(scr.x, gy, scr.w, 1.2); ctx.fillStyle = '#021a12'; ctx.fillRect(scr.x + 4, gy + 1.2, scr.w - 8, 0.8); }
         ctx.globalAlpha = 1;
+        ctx.globalAlpha = 0.25; ctx.fillStyle = '#000'; for (let y = scr.y; y < scr.y + scr.h; y += 2) ctx.fillRect(scr.x, y, scr.w, 1);
+        ctx.globalAlpha = 1; ctx.restore();
         // screen glow on the wall
         ctx.fillStyle = 'rgba(47,255,160,0.05)'; ctx.fillRect(cx + 10, 60, 90, 60);
       }
       // character + chair front
       drawZero(R(p.x), R(p.y), p, t);
-      rect(chairX - 14, 121, 26, 4, '#2a1c22'); rect(chairX - 14, 125, 26, 1, '#0a0608'); rect(chairX - 2, 126, 3, 12, '#1a1216'); rect(chairX - 10, 138, 18, 2, '#1a1216');
       ctx.restore();
       // overlay: vignette, scanlines, VHS noise (same family as the pause screen)
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -328,8 +343,9 @@
         ctx.fillStyle = '#e8e8ee'; const tc = (n) => String(Math.floor(n)).padStart(2, '0'); ctx.fillText('REC  00:' + tc(t / 60) + ':' + tc(t % 60), fs * 2.2, fs * 1.1); ctx.textAlign = 'center'; ctx.fillText('SESSION ' + String(sess).padStart(2, '0'), canvas.width / 2, canvas.height - fs * 4.2); ctx.textAlign = 'left'; ctx.globalAlpha = 1; }
       // fades
       if (t < T0) { ctx.fillStyle = 'rgba(0,0,0,' + (1 - t / T0) + ')'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
-      if (t > T4) { const u = clamp((t - T4) / dur.flash, 0, 1), hh = canvas.height * (0.02 + 0.98 * ease(u)); ctx.fillStyle = 'rgba(210,255,235,' + (0.2 + 0.8 * u) + ')'; ctx.fillRect(0, canvas.height / 2 - hh / 2, canvas.width, hh); if (u > 0.55) { ctx.fillStyle = 'rgba(0,0,0,' + clamp((u - 0.55) / 0.45, 0, 1) + ')'; ctx.fillRect(0, 0, canvas.width, canvas.height); } }
-      if (t >= T5) { finish(); return; }
+      if (zu > 0.55 && hash(Math.floor(t * 12) + 5) > 0.72) { const n = 1 + Math.floor(hash(Math.floor(t * 12)) * 3); for (let k = 0; k < n; k++) { const gy = Math.floor(hash(k + Math.floor(t * 12) * 3) * canvas.height * 0.85), gh = 6 + Math.floor(hash(k * 9 + Math.floor(t * 12)) * canvas.height * 0.06), dx = Math.round((hash(k + 40 + Math.floor(t * 12)) - 0.5) * canvas.width * 0.08 * zu); ctx.drawImage(canvas, 0, gy, canvas.width, gh, dx, gy, canvas.width, gh); } }
+      if (zu > 0.3) { ctx.globalCompositeOperation = 'screen'; ctx.globalAlpha = 0.07 * zu; ctx.drawImage(canvas, 3, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; }
+      if (t >= T4) { finish(); return; }
       raf = requestAnimationFrame(frame);
     };
     Audio2().beep && Audio2().beep();
