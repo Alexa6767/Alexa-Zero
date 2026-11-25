@@ -41,6 +41,12 @@
   let msgTimer = null;
   const keys = { left: false, right: false, run: false, jump: false, slash: false };
   const pressed = { jump: false, slash: false, act: false };
+  const CODEMAP = {
+    ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', ShiftLeft: 'run', ShiftRight: 'run',
+    ArrowUp: 'jump', KeyW: 'jump', Space: 'jump', KeyJ: 'slash', KeyK: 'slash', KeyX: 'slash', KeyZ: 'slash', KeyL: 'slash',
+    KeyE: 'act', Enter: 'act', NumpadEnter: 'act', KeyF: 'act'
+  };
+  const keyOf = (e) => CODEMAP[e.code] || KEYMAP[String(e.key || '').toLowerCase()] || ({ 'ش': 'left', 'ي': 'right', 'ض': 'jump', 'ث': 'act', 'ق': 'jump', 'ا': 'left', 'ل': 'right' })[e.key] || null;
   const KEYMAP = {
     arrowleft: 'left', a: 'left', arrowright: 'right', d: 'right', shift: 'run',
     arrowup: 'jump', w: 'jump', ' ': 'jump',
@@ -54,16 +60,20 @@
   }
   window.addEventListener('keydown', (e) => {
     if (!W) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.target && e.target.tagName === 'INPUT') return;
-    const k = KEYMAP[e.key.toLowerCase()];
+    const k = keyOf(e);
     if (!k) return;
     e.preventDefault();
+    if (document.activeElement && document.activeElement.tagName === 'BUTTON') document.activeElement.blur();
+    if (k === 'act') { setKey(k, true); return; }
     if (!e.repeat) setKey(k, true);
   });
   window.addEventListener('keyup', (e) => {
-    const k = KEYMAP[e.key.toLowerCase()];
+    const k = keyOf(e);
     if (k && k !== 'act') setKey(k, false);
   });
+  canvas.addEventListener('pointerdown', (e) => { if (W && e.pointerType === 'mouse') { setKey('slash', true); setTimeout(() => setKey('slash', false), 80); } });
   window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
   ui.querySelectorAll('#world-pad button').forEach(b => {
     const k = b.dataset.k;
@@ -118,9 +128,10 @@
   /* ---------- helpers ---------- */
   const hash = (n) => { const s = Math.sin(n * 127.1) * 43758.5453; return s - Math.floor(s); };
   const R = Math.round;
-  function rect(x, y, w, h, c) { ctx.fillStyle = c; ctx.fillRect(R(x), R(y), w, h); }
+  let TINT = null;
+  function rect(x, y, w, h, c) { ctx.fillStyle = TINT || c; ctx.fillRect(R(x), R(y), w, h); }
   function limb(x1, y1, x2, y2, th, c) {
-    ctx.fillStyle = c;
+    ctx.fillStyle = TINT || c;
     const n = Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1), 1);
     for (let i = 0; i <= n; i++) {
       const t = i / n;
@@ -186,7 +197,7 @@
       o.lives = key ? 4 : 3; o.maxLives = o.lives;
     }
     setup(kind, o);
-    if (kind === 'chase') showMsg('Hold RUN. Jump the crates. Slash the glitch walls. Reach the server.', 5000);
+    if (kind === 'chase') showMsg('Hold RUN until you are at full speed. Jump the crates. Slash the glitch walls. Reach the server.', 5000);
     else showMsg(BOSS_LINES.start, 4200);
     Audio2().glitch && Audio2().glitch();
   }
@@ -325,7 +336,10 @@
     const p = W.p, canAct = !W.entering && !W.done && !(W.scene === 'arena' && W.boss.dead);
     const dir = canAct ? (keys.right ? 1 : 0) - (keys.left ? 1 : 0) : 0;
     p.run = keys.run && dir !== 0;
-    const sp = p.run ? RUN : WALK;
+    if (p.run && (p.runDir === dir)) p.runT = (p.runT || 0) + dt; else p.runT = 0;
+    p.runDir = dir;
+    p.stage = !p.run ? 0 : p.runT < 1 ? 1 : p.runT < 2.2 ? 2 : 3;
+    const sp = p.run ? [0, RUN, 205, 275][p.stage] : WALK;
     const tvx = dir * sp * (p.slash > 0 ? 0.35 : 1);
     p.vx += (tvx - p.vx) * Math.min(1, dt * (p.ground ? 14 : 6));
     if (dir) p.face = dir;
@@ -340,7 +354,7 @@
       const l = s.x - s.w / 2 - 4, r = s.x + s.w / 2 + 4, top = GY - s.h;
       if (p.x > l && p.x < r) {
         if (prevY <= top + 1 && p.y >= top && p.vy >= 0) { p.y = top; p.vy = 0; p.ground = true; }
-        else if (p.y > top + 1) { p.x = p.x < s.x ? l : r; p.vx = 0; }
+        else if (p.y > top + 1) { p.x = p.x < s.x ? l : r; p.vx = 0; p.runT = 0; }
       }
     });
     if (p.ground) p.coyote = 0.08; else p.coyote -= dt;
@@ -358,9 +372,9 @@
     if (p.inv > 0) p.inv -= dt;
     // animation phase
     const moving = Math.abs(p.vx) > 6 && p.ground;
-    if (moving) p.ph += dt * (p.run ? 15 : 9.5) * (Math.abs(p.vx) / (p.run ? RUN : WALK) * 0.4 + 0.6);
+    if (moving) p.ph += dt * (p.run ? 15 : 9.5) * Math.min(1.7, (Math.abs(p.vx) / (p.run ? RUN : WALK) * 0.4 + 0.6));
     if (moving && p.run) { p.dust -= dt; if (p.dust <= 0) { p.dust = 0.07; dust(p.x - p.face * 3, p.y, p.face); } }
-    p.hist.push({ x: p.x, y: p.y, t: W.t }); if (p.hist.length > 12) p.hist.shift();
+    p.hist.push({ x: p.x, y: p.y, t: W.t, face: p.face, ph: p.ph, vx: p.vx, vy: p.vy, ground: p.ground }); if (p.hist.length > 14) p.hist.shift();
     // slash hitbox is active in the middle of the swing
     p.slashActive = p.slash > 0.06 && p.slash < 0.24;
   }
@@ -404,7 +418,7 @@
       });
     }
     const dist = Math.max(0, p.x);
-    m.x += (116 + Math.min(28, dist / 80)) * m.speed * dt * (W.caught > 0 ? 0 : 1);
+    m.x += (140 + Math.min(32, dist / 90)) * m.speed * dt * (W.caught > 0 ? 0 : 1);
     if (W.caught > 0) { W.caught -= dt; if (W.caught <= 0) rewind(); return; }
     if (m.x + 14 >= p.x - 4 && !W.done) {
       W.caught = 1.4; Horror.flash('CAUGHT', 900); Audio2().error && Audio2().error(); spark(p.x, p.y - 14, 26, '#000', 100);
@@ -489,80 +503,98 @@
   }
 
   /* ---------- drawing ---------- */
+  /* two-bone limb: from (x1,y1) to target (x2,y2); the joint bends toward `bend` (+1 forward, -1 back) */
+  function bone2(x1, y1, x2, y2, l1, l2, f, bend) {
+    let dx = x2 - x1, dy = y2 - y1, d = Math.hypot(dx, dy) || 0.01;
+    const max = l1 + l2 - 0.2;
+    if (d > max) { x2 = x1 + dx / d * max; y2 = y1 + dy / d * max; dx = x2 - x1; dy = y2 - y1; d = max; }
+    const a = (l1 * l1 - l2 * l2 + d * d) / (2 * d), h = Math.sqrt(Math.max(0, l1 * l1 - a * a));
+    const mx = x1 + dx * a / d, my = y1 + dy * a / d;
+    const nx = -dy / d, ny = dx / d;
+    const sgn = (nx * f * bend >= 0 ? 1 : -1) * (Math.abs(nx) < 0.05 ? (f * bend) : 1);
+    return { kx: mx + nx * h * sgn, ky: my + ny * h * sgn, x: x2, y: y2 };
+  }
+
   function drawZero(x, y, p, t) {
     const f = p.face;
-    const moving = Math.abs(p.vx) > 6 && p.ground, running = moving && p.run;
-    const bob = !p.ground ? 0 : moving ? Math.abs(Math.sin(p.ph)) * (running ? 1.6 : 1) : Math.sin(t * 2.2) * 0.6;
-    const lean = (running ? 3 : moving ? 1 : 0) * f + (!p.ground ? f * 1 : 0);
-    const hx = x, hy = y - 14 - bob;
-    const sx = x + lean * 0.8, sy = y - 27 - bob;
-    const hdx = x + lean * 1.5, hdy = y - 34 - bob;
-    const robe = '#16162c', trim = '#3d3d70', dark = '#0b0b18', red = '#ff2a55', blade = '#c9efff', skin = '#e0bda0';
+    const moving = Math.abs(p.vx) > 6 && p.ground, running = moving && p.run, air = !p.ground;
     if (p.inv > 0 && Math.floor(t * 20) % 2) return;
-    // afterimages while running
-    if (running) { ctx.globalAlpha = 0.16; for (let k = 3; k <= 9; k += 3) { const h = p.hist[p.hist.length - 1 - k]; if (h) { ctx.fillStyle = '#ff2a55'; ctx.fillRect(R(h.x - W.cam - 3), R(h.y - 34), 6, 34); } } ctx.globalAlpha = 1; }
-    // shadow
-    ctx.globalAlpha = 0.5; rect(x - 6, y + 0, 12, 2, '#000'); ctx.globalAlpha = 1;
-    // legs
-    let fa, fb;
-    if (p.ground) {
-      const a = Math.sin(p.ph), b = Math.sin(p.ph + Math.PI), A = running ? 9 : 5;
-      if (moving) { fa = [x + a * A, y - Math.max(0, Math.cos(p.ph)) * (running ? 6 : 3)]; fb = [x + b * A, y - Math.max(0, Math.cos(p.ph + Math.PI)) * (running ? 6 : 3)]; }
-      else { fa = [x - 3, y]; fb = [x + 3, y]; }
-    } else if (p.vy < 0) { fa = [x + f * 5, y - 8]; fb = [x - f * 3, y - 5]; }
-    else { fa = [x + f * 3, y - 3]; fb = [x - f * 2, y - 2]; }
-    [fb, fa].forEach((ft, i) => {
-      const kx = (hx + ft[0]) / 2 + f * 2.5, ky = (hy + ft[1]) / 2;
-      const col = i === 0 ? '#090912' : dark;
-      limb(hx, hy, kx, ky, 3, col); limb(kx, ky, ft[0], ft[1] - 1, 3, col);
-      rect(ft[0] - 2 + (f > 0 ? 1 : 0), ft[1] - 2, 4, 2, '#000');
-    });
-    // back arm
-    const sw = moving ? Math.sin(p.ph) * (running ? 7 : 4) : 0;
-    const air = !p.ground;
-    const bax = air ? sx - f * 5 : sx - f * 1 + sw * -f * 0.6, bay = air ? sy - 3 : sy + 9;
-    limb(sx, sy + 1, bax, bay, 2, '#0d0d1e');
-    // torso
-    limb(hx, hy, sx, sy, 6, robe);
-    rect(sx - 3, sy, 6, 2, trim);
-    rect(hx - 3, hy - 3, 6, 2, red);                       // sash
-    rect(hx - 4 + (f > 0 ? 0 : 2), hy - 1, 6, 4, robe);   // skirt
-    // head
-    rect(hdx - 3, hdy - 3, 6, 6, skin);
-    rect(hdx - 3, hdy - 4, 6, 3, '#17121f');               // hair
-    rect(hdx - f * 4 + (f > 0 ? -1 : 0), hdy - 3, 2, 4, '#17121f'); // back strands
-    rect(hdx + f * 2 - (f > 0 ? 0 : 1), hdy - 1, 1, 1, '#fff');      // eye
-    // scarf
-    for (let i = 0; i < 7; i++) {
-      const spread = (moving ? 1.5 : 0.7) * (running ? 1.4 : 1);
-      const bx = sx - f * (1 + i * 2.2 * spread), by = sy - 1 + Math.sin(t * 9 - i * 0.9) * (0.5 + i * 0.3 * spread) + (air ? Math.max(-4, Math.min(4, p.vy * -0.012 * i)) : 0);
-      rect(bx, by, 3, 2, i % 2 ? red : '#c01d3f');
+    const skin = '#e8bf9f', skinD = '#c9977a', hair = '#2b1d1a', hairL = '#4a3430', jacket = '#23262f', jacketL = '#3a3f4d', shirt = '#d8334f', pants = '#2d3550', shoe = '#e6e6ea', blade = '#c9efff';
+    const ph = p.ph;
+    const bob = air ? 0 : moving ? -Math.abs(Math.sin(ph)) * (running ? 2.2 : 1.2) : Math.sin(t * 2.2) * 0.5;
+    const lean = (running ? 3.2 : moving ? 1 : 0) * f + (air ? f * 1.2 : 0);
+    // afterimages: fading silhouettes of the real pose, like a dash trail
+    if (!TINT && (running || p.slash > 0)) {
+      const steps = running ? (Math.abs(p.vx) > 230 ? [2, 4, 6, 8, 10] : Math.abs(p.vx) > 175 ? [3, 5, 8] : [3, 6]) : [2, 4];
+      steps.forEach((k, i) => {
+        const hh = p.hist[p.hist.length - 1 - k]; if (!hh || Math.abs(hh.x - p.x) < 3) return;
+        TINT = i % 2 ? '#7fe9ff' : '#ff4d6d'; ctx.globalAlpha = 0.34 - i * 0.09;
+        drawZero(R(hh.x - W.cam), R(hh.y), Object.assign({}, p, { x: hh.x, y: hh.y, face: hh.face, ph: hh.ph, vx: hh.vx, ground: hh.ground, vy: hh.vy, slash: 0, inv: 0, hist: [] }), t);
+        TINT = null; ctx.globalAlpha = 1;
+      });
+      if (running) { ctx.globalAlpha = 0.5; for (let q = 0; q < 4; q++) rect(x - f * (14 + q * 7 + hash(q + Math.floor(t * 20)) * 6), y - 30 + q * 8, 8 + q * 2, 1, '#ffd0d8'); ctx.globalAlpha = 1; }
     }
-    // sword arm + katana + slash arc
-    let ang, sh = 1;
+    if (!TINT) { ctx.globalAlpha = 0.5; rect(x - 6, y, 12, 2, '#000'); ctx.globalAlpha = 1; }
+    const hipX = x, hipY = y - 14 + bob * 0.6;
+    // feet targets
+    let fa, fb;
+    if (!air) {
+      if (moving) {
+        const A = running ? 9 : 5.5, L = running ? 6 : 3.2;
+        const oa = f * Math.sin(ph) * A, ob = f * Math.sin(ph + Math.PI) * A;
+        fa = [x + oa, y - Math.max(0, Math.cos(ph)) * L]; fb = [x + ob, y - Math.max(0, Math.cos(ph + Math.PI)) * L];
+      } else { fa = [x - 3, y]; fb = [x + 3, y]; }
+    } else if (p.vy < 0) { fa = [x + f * 5, y - 9]; fb = [x - f * 3, y - 5]; }
+    else { fa = [x + f * 3, y - 4]; fb = [x - f * 2, y - 3]; }
+    [[fb, '#1d2236'], [fa, pants]].forEach(([ft, col]) => {
+      const j = bone2(hipX, hipY, ft[0], ft[1] - 2, 7.5, 7.5, f, 1);
+      limb(hipX, hipY, j.kx, j.ky, 4, col); limb(j.kx, j.ky, j.x, j.y, 3, col);
+      rect(ft[0] - (f > 0 ? 2 : 3), ft[1] - 3, 5, 3, shoe); rect(ft[0] - (f > 0 ? 2 : 3), ft[1] - 1, 5, 1, '#8a8a95');
+    });
+    // torso
+    const shX = hipX + lean * 0.9, shY = hipY - 12 + bob * 0.4;
+    limb(hipX, hipY - 1, shX, shY, 7, jacket);
+    rect(shX - 2 + (f > 0 ? 1 : 0), shY + 1, 2, 7, shirt);              // open jacket, shirt in front
+    rect(hipX - 3, hipY - 2, 6, 2, '#111');                              // belt
+    // back arm
+    const swing = moving ? Math.sin(ph + Math.PI) * (running ? 7 : 4.5) * f : 0;
+    const bT = air ? [shX - f * 5, shY - 4] : [shX + swing, shY + 10 - Math.abs(swing) * 0.15];
+    const ba = bone2(shX, shY + 1, bT[0], bT[1], 5.5, 5.5, f, -1);
+    limb(shX, shY + 1, ba.kx, ba.ky, 3, '#1a1c24'); limb(ba.kx, ba.ky, ba.x, ba.y, 3, '#1a1c24'); rect(ba.x - 1, ba.y - 1, 3, 3, skinD);
+    // head
+    const hx = shX + f * 0.6, hy = shY - 7 + bob * 0.3;
+    const pr = (dx, dy, w, h, c) => rect(f > 0 ? hx + dx : hx - dx - w, hy + dy, w, h, c);
+    const sway = moving ? Math.sin(ph * 2) * 1 : Math.sin(t * 2) * 0.4;
+    pr(-3, 3, 4, 3, skinD);                              // neck
+    pr(-4, -4, 9, 9, skin);                              // head
+    pr(-5, -6, 11, 4, hair); pr(-6, -4, 3, 8 + (running ? 1 : 0), hair); // top + back
+    pr(-7 - (running ? 2 : 0), -2 + sway, 2, 5, hairL);  // back tuft
+    pr(2, -4, 4, 3, hair); pr(5, -3, 1, 2, hair);        // fringe
+    pr(-3, -9, 3, 3, hair); pr(0, -8, 3, 2, hair); pr(2, -7, 3, 1, hairL); // spikes
+    const blink = hash(Math.floor(t * 1.7)) > 0.93 && !air;
+    if (blink) pr(1, 0, 4, 1, '#2a1a14'); else { pr(1, -1, 4, 3, '#fff'); pr(3, -1, 2, 3, '#1a1a22'); pr(4, -1, 1, 1, '#fff'); }
+    pr(1, -3, 5, 1, '#2a1a14');                          // brow
+    pr(5, 1, 2, 2, skin); pr(6, 2, 1, 1, skinD);         // nose
+    pr(3, 4, 3, 1, '#8a4a4a');                           // mouth
+    pr(-2, 0, 2, 3, skinD);                              // ear
+    // front arm with the katana
     const slashing = p.slash > 0;
-    const hand = (a) => ({ x: sx + Math.cos(a) * f * 7, y: sy + 1 + Math.sin(a) * 7 });
     if (slashing) {
-      const u = 1 - p.slash / 0.3;                 // 0..1
-      const e = u < 0.2 ? u / 0.2 * 0.25 : 0.25 + (u - 0.2) / 0.8 * 0.75;
-      ang = (-2.0 + e * 3.1);                      // from up-back to down-front (radians, forward axis)
-      const hd = hand(ang);
-      limb(sx, sy + 1, hd.x, hd.y, 2, '#14142a');
-      const bx2 = hd.x + Math.cos(ang) * f * 20, by2 = hd.y + Math.sin(ang) * 20;
-      limb(hd.x, hd.y, bx2, by2, 2, blade); rect(hd.x - 1, hd.y - 1, 2, 2, '#fff');
-      // arc trail
-      for (let k = 0; k < 14; k++) {
-        const aa = ang - k * 0.1, rr = 21;
-        ctx.globalAlpha = Math.max(0, 0.75 - k * 0.055);
-        rect(sx + Math.cos(aa) * f * rr, sy + 1 + Math.sin(aa) * rr, 2, 2, '#e8fbff');
-      }
+      const u = 1 - p.slash / 0.3, e = u < 0.2 ? u / 0.2 * 0.25 : 0.25 + (u - 0.2) / 0.8 * 0.75, ang = -2.0 + e * 3.1;
+      const hd = { x: shX + Math.cos(ang) * f * 9, y: shY + 1 + Math.sin(ang) * 9 };
+      const fa2 = bone2(shX, shY + 1, hd.x, hd.y, 5.5, 5.5, f, -1);
+      limb(shX, shY + 1, fa2.kx, fa2.ky, 3, jacket); limb(fa2.kx, fa2.ky, fa2.x, fa2.y, 3, jacket); rect(fa2.x - 1, fa2.y - 1, 3, 3, skin);
+      limb(fa2.x, fa2.y, fa2.x + Math.cos(ang) * f * 20, fa2.y + Math.sin(ang) * 20, 2, blade);
+      for (let k = 0; k < 14; k++) { const aa = ang - k * 0.1; ctx.globalAlpha = Math.max(0, 0.8 - k * 0.057); rect(shX + Math.cos(aa) * f * 22, shY + 1 + Math.sin(aa) * 22, 2, 2, '#e8fbff'); }
       ctx.globalAlpha = 1;
     } else {
-      ang = running ? -2.9 + 0.0 : air ? -2.2 : -2.4;
-      const hd = { x: sx + f * 3, y: sy + 7 + (moving ? Math.sin(p.ph + 1) * 1.5 : 0) };
-      limb(sx, sy + 1, hd.x, hd.y, 2, '#14142a');
-      const dirx = running ? -f * 0.97 : -f * 0.55, diry = running ? -0.2 : -0.83;
-      limb(hd.x, hd.y, hd.x + dirx * 18, hd.y + diry * 18, 2, blade); rect(hd.x - 1, hd.y - 1, 2, 2, '#c01d3f');
+      const wob = moving ? Math.sin(ph) * (running ? 3 : 1.5) : Math.sin(t * 2.2) * 0.4;
+      const hT = running ? [shX - f * 4, shY + 6 + wob] : [shX + f * 5, shY + 9 + wob];
+      const fa2 = bone2(shX, shY + 1, hT[0], hT[1], 5.5, 5.5, f, -1);
+      limb(shX, shY + 1, fa2.kx, fa2.ky, 3, jacket); limb(fa2.kx, fa2.ky, fa2.x, fa2.y, 3, jacket); rect(fa2.x - 1, fa2.y - 1, 3, 3, skin);
+      const dx = running ? -f * 0.98 : f * 0.35, dy = running ? -0.18 : 0.94;
+      limb(fa2.x, fa2.y, fa2.x + dx * 17, fa2.y + dy * 17, 2, blade);
+      rect(fa2.x - 1, fa2.y - 1, 3, 2, '#111');
     }
   }
 
@@ -794,7 +826,7 @@
     if (pressed.act) { pressed.act = false; if (n) n.fn(); }
     let hint = '';
     if (n) hint = '[E / ACT] ' + n.label;
-    else if (W.t < 9 && W.scene === 'hall') hint = 'A / D walk. Hold Shift to run. W jump. J slash.';
+    else if (W.t < 9 && W.scene === 'hall') hint = 'A / D walk. Hold Shift to run: it gets faster (3 stages). W jump. J slash.';
     else if (W.scene === 'arena' && W.t < 8) hint = 'Jump the shots. Slash falling orbs. Slash him when he drops.';
     hintEl.textContent = hint;
     draw();
