@@ -771,3 +771,30 @@
             padding-bottom: 14px;
         }
         #notes-close { align-self: center; }
+
+/* ===== ACT II/III: hallway, horror overlays, circus ===== */
+#start-screen p .warn { display:block; margin-top:18px; font-size:7px; color:#aa5566; letter-spacing:1px; line-height:1.8; text-shadow:none; }
+#world { position:fixed; inset:0; width:100%; height:100%; display:none; z-index:20; background:#000; image-rendering:pixelated; }
+#world-ui { position:fixed; inset:0; display:none; z-index:25; pointer-events:none; font-family:'Press Start 2P',monospace; }
+#world-hint { position:absolute; top:14px; left:50%; transform:translateX(-50%); color:#ff0040; font-size:9px; letter-spacing:1px; text-align:center; text-shadow:2px 2px 0 #000; max-width:90%; }
+#world-msg { display:none; position:absolute; left:50%; bottom:24%; transform:translateX(-50%); width:86%; max-width:640px; background:#000c; border:2px solid #ff0040; color:#ff3355; padding:14px; font-size:9px; line-height:1.9; white-space:pre-wrap; }
+#world-frags { position:absolute; top:14px; right:14px; color:#aa5566; font-size:8px; }
+#world-pad { position:absolute; bottom:70px; left:50%; transform:translateX(-50%); display:none; gap:14px; pointer-events:auto; }
+#world-pad button { width:64px; height:56px; background:#000a; border:2px solid #ff0040; color:#ff0040; font-family:inherit; font-size:14px; touch-action:none; }
+#world-pad button.act { width:88px; font-size:10px; }
+@media (hover: none), (max-width: 700px) { #world-pad { display:flex; } #world-msg { bottom:30%; } }
+#hz-flash { display:none; position:fixed; inset:0; z-index:5000; background:#000; align-items:center; justify-content:center; }
+#hz-flash span { color:#ff0030; font-family:'Press Start 2P',monospace; font-size:clamp(20px,6vw,56px); text-align:center; }
+#hz-black { display:none; position:fixed; inset:0; z-index:4900; background:#000; align-items:center; justify-content:center; color:#ff2244; font-family:'Press Start 2P',monospace; font-size:11px; text-align:center; padding:20px; }
+#hz-crash { display:none; position:fixed; inset:0; z-index:4800; background:#0a0a14; align-items:center; justify-content:center; }
+#hz-crash .hz-dialog { width:min(86%,460px); background:#c0c0c0; border:3px outset #fff; color:#000; font-family:Arial,sans-serif; font-size:13px; }
+#hz-crash .hz-title { background:#000080; color:#fff; padding:5px 8px; font-weight:bold; }
+#hz-crash p { padding:6px 14px; margin:8px 0; }
+#hz-crash .hz-btns { display:flex; gap:12px; justify-content:center; padding:10px 0 14px; font-size:12px; }
+#hz-term { display:none; position:fixed; inset:0; z-index:4700; background:#000; color:#1aff6a; font-family:'Courier New',monospace; font-size:14px; padding:24px; line-height:1.7; }
+body.circus { --accent-color:#ff4fb8; --bg-color:#14062a; --box-bg:#2a0f4a; --choice-border:#8a4fff; background:#14062a; }
+body.circus #box { border-color:#ffd23f; box-shadow:0 0 0 4px #ff4fb8, 0 0 30px #8a4fff; }
+body.circus .therapist-text { color:#ffe66d; }
+body.circus .choice { border-color:#4fffd8; color:#4fffd8; }
+body.circus #scanlines { opacity:.5; }
+@media (max-width: 700px) { #world-frags { top: 44px; right: 50%; transform: translateX(50%); } #world-hint { font-size: 8px; } }

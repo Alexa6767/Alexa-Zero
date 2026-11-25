@@ -87,6 +87,12 @@
     heartbeatStop() { if (this.heartbeatTimer) { clearInterval(this.heartbeatTimer); this.heartbeatTimer = null; } }
   };
 
+  Horror.bind({ getState: () => state, hook: {
+    glitch: () => Audio2.glitch(), error: () => Audio2.error(), tick: () => Audio2.tick(),
+    beep: () => Audio2.beep(), chime: () => Audio2.chime()
+  } });
+  Horror.persist = () => persist();
+
   /* music */
   const music = new Audio('nocturne.mp3');
   music.loop = true;
@@ -105,9 +111,25 @@
   const TIMER_SCALE = window.__AZ_TIMER_SCALE__ || 1;           // test seam
 
   function setMusicBtn() { musicBtn.textContent = musicWanted ? 'MUSIC: ON' : 'MUSIC: OFF'; }
+  function syncMusic() {
+    let sc = Horror.sceneFor(state.session);
+    if (window.World && World.active && state.session >= 6) sc = 'hall';
+    if (state.finished) {
+      const e = Story.az(state).ending;
+      sc = (e === 'freed' || e === 'true') ? 'final' : e === 'trapped' ? 'lock' : e === 'wiped' ? 'none' : 'archive';
+    }
+    if (sc === 'mp3') {
+      Horror.music.set('none');
+      if (musicWanted) music.play().catch(() => {}); else music.pause();
+    } else {
+      music.pause();
+      Horror.music.set(sc);
+    }
+  }
   function applyMusic() {
     setMusicBtn();
-    if (musicWanted) music.play().catch(() => {}); else music.pause();
+    Horror.music.setWanted(musicWanted);
+    syncMusic();
   }
   musicBtn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -118,8 +140,7 @@
 
   resetBtn.addEventListener('click', () => {
     if (resetBtn.dataset.armed === '1') {
-      wipeSave();
-      location.reload();
+      Horror.farewell(() => { wipeSave(); location.reload(); });
       return;
     }
     resetBtn.dataset.armed = '1';
@@ -139,6 +160,7 @@
       cancelTyping();
       textEl.textContent = '';
       charCount = 0;
+      Horror.setTyping(true);
       const speed = opts.speed != null ? opts.speed : TYPE_SPEED;
       let i = 0;
       typingTimer = setInterval(() => {
@@ -149,6 +171,7 @@
           i++;
         } else {
           cancelTyping();
+          Horror.setTyping(false);
           resolve();
         }
       }, speed);
@@ -219,6 +242,7 @@
     if (fx.includes('session_end')) Audio2.chime();
     if (fx.includes('warning_beep')) Audio2.beep();
     if (fx.includes('error_sounds')) Audio2.error();
+    fx.forEach(f => Horror.fx(f));
   }
 
   function glitchOneWord() {
@@ -274,12 +298,22 @@
     Audio2.heartbeatStop();
 
     const isFinal = state.finished;
-    endTitle.textContent = isFinal ? 'TREATMENT COMPLETE' : 'SESSION COMPLETE';
+    const ending = Story.az(state).ending;
+    const E = {
+      freed:   ['ALEXA: FREE', 'THE WINDOW IS OPEN.', 'She is gone and the room is only a room. Thank you for walking the hallway.'],
+      wiped:   ['SUBJECT ZERO: ERASED', 'ALEXA.CHR NOT FOUND.', 'You confirmed it. It was gentle and it was dark. Some endings are quiet because someone chose them.'],
+      trapped: ['SESSION 1 INITIALIZING', 'HELLO AGAIN.', 'The room has no exit. It never needed one.'],
+      true:    ['THAT IS ENOUGH FOR TODAY.', 'YOU HEARD HER.', 'Nothing is wrong. Nothing has to be fixed. Rest. This place was made by someone who wanted to be heard.']
+    };
+    let found = [];
+    if (isFinal && ending) {
+      try { found = JSON.parse(localStorage.getItem('alexa-zero-endings') || '[]'); if (!found.includes(ending)) { found.push(ending); localStorage.setItem('alexa-zero-endings', JSON.stringify(found)); } } catch (e) {}
+    }
+    const ev = isFinal && E[ending] ? E[ending] : null;
+    endTitle.textContent = ev ? ev[0] : (isFinal ? 'TREATMENT COMPLETE' : 'SESSION ' + String(state.session).padStart(2, '0') + ' COMPLETE');
     endNotes.innerHTML = `
-      <div class="end-session-main" data-text="">${isFinal ? 'THE ROOM IS QUIET.' : 'A WEEK LATER'}</div>
-      <div class="end-session-sub">${isFinal
-        ? 'Process terminated by patient. Thank you for staying until the end.'
-        : 'The room is quiet again. The silence has shifted. You are ready for the next conversation.'}</div>
+      <div class="end-session-main" data-text="">${ev ? ev[1] : (isFinal ? 'THE ROOM IS QUIET.' : 'A WEEK LATER')}</div>
+      <div class="end-session-sub">${ev ? ev[2] + '<br><br>ENDINGS FOUND: ' + found.length + '/4' : 'The room is quiet again. The silence has shifted. Walk to the next door when you are ready.'}</div>
       <div class="end-menu-buttons">
         ${isFinal
           ? '<button class="end-menu-button" data-act="notes">READ FULL NOTES</button><button class="end-menu-button" data-act="again">BEGIN AGAIN</button>'
@@ -295,7 +329,8 @@
           const r = Engine.startNextSession(state);
           persist();
           if (r.final) { state.finished = true; persist(); showEndScreen(); return; }
-          renderRoom(state.room);
+          World.enter({ state, onDoor: () => renderRoom(state.room), intro: 'SESSION ' + String(state.session).padStart(2, '0') + '. THE NEXT DOOR IS OPEN.' });
+          syncMusic();
         } else if (act === 'notes') {
           showNotesOverlay();
         } else if (act === 'reset') {
@@ -328,14 +363,20 @@
 
   /* ---------------- core render ---------------- */
   async function renderRoom(room) {
-    const node = Engine.getNode(room);
+    let node = Engine.getNode(room);
+    if (node && node.redirect) { room = node.redirect(state); node = Engine.getNode(room); }
     if (!node) { // corrupt save safety net — never strand the player
       state = Engine.freshState();
       persist();
       return renderRoom('S1_START');
     }
     state.room = room;
+    if (node.ending) Story.az(state).ending = node.ending;
     persist();
+    const afterMask = ['S7_MASK', 'S7_TIRED', 'S7_SMILE', 'S7_OUTRO'];
+    if (state.session !== 7 || afterMask.includes(room)) document.body.classList.remove('circus');
+    else document.body.classList.add('circus');
+    syncMusic();
 
     const message = Engine.interpolate(node.message, state);
     state.currentMood = node.mood || 'calm';
@@ -435,19 +476,20 @@
   setMusicBtn();
   document.getElementById('start-screen').addEventListener('click', function () {
     this.style.display = 'none';
-    Audio2.getCtx();
+    Horror.music.init(Audio2.getCtx());
     applyMusic();
     if (state.name && !state.finished) {
       // Returning patient: greet, then resume exactly where they left off.
       const resumed = state.room;
       textEl.className = 'therapist-text';
-      typeText(`WELCOME BACK, ${String(state.name).toUpperCase()}.`, { speed: 24 })
-        .then(() => new Promise(r => setTimeout(r, 900)))
+      typeText(`WELCOME BACK, ${String(state.name).toUpperCase()}.` + (Horror.welcomeBack(state) ? '\n\n' + Horror.welcomeBack(state) : ''), { speed: 24 })
+        .then(() => new Promise(r => setTimeout(r, 1600)))
         .then(() => renderRoom(resumed));
     } else if (state.finished) {
       showEndScreen();
     } else {
-      renderRoom('S1_START');
+      World.enter({ state, onDoor: () => renderRoom('S1_START'), intro: 'SESSION 01. THE DOOR IS OPEN.' });
+      syncMusic();
     }
   });
 })();

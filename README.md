@@ -1,22 +1,20 @@
 # Alexa-Zero
 
-A therapy-style interactive fiction site inspired by Katana Zero. You sit across
-from Alexa, an AI therapist with a timer, a temper, and a script that remembers
-how you treat her. Five sessions. Your progress is saved privately in your own
-browser (localStorage) — no accounts, no servers, no shared state.
+A Katana Zero style therapy-horror story. You sit across from Alexa, an AI
+therapist with a timer, a temper and a memory. Ten sessions, a walkable
+hallway between them, hidden log fragments, and four endings.
+Progress is saved in your own browser (localStorage). No accounts, no server.
+
+Content warning: depression, self-harm themes, flashing lights, sudden sounds.
 
 ## Run locally
-
-It is a fully static site. Open `index.html` in a browser, or serve the folder:
-
-```
-npx serve .
-```
+Static site. Open `index.html` or run `npx serve .`
 
 ## Files
-
-- `index.html` — page structure
-- `style.css` — Katana Zero visual style (red on black, pixel font, glitch effects)
-- `script.js` — the full therapy script and the branching engine core (pure logic)
-- `app.js` — rendering, timer, interrupts, sound, save/resume
-- `nocturne.mp3` — background music
+- `index.html`, `style.css`: page and look
+- `script.js`: sessions 1-5 and the branching engine
+- `story.js`: sessions 6-10, endings, story hooks
+- `world.js`: the walkable hallway
+- `horror.js`: meta horror effects and the generated soundtrack
+- `app.js`: rendering, timer, sound, save/resume
+- `nocturne.mp3`: background music for sessions 1-5
