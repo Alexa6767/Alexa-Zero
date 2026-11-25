@@ -342,8 +342,48 @@
   }
 
   /* draw(ctx, x, y, p, t, hero, opts): x,y feet. opts: tint, noRefl, floorY, dissolve, noFx */
+  /* ---- sprite-sheet renderer (IbrahimArt free character pack, see README credits) ---- */
+  const PM = {"idle": [0, 8], "walk": [8, 10], "run": [18, 10], "jump": [28, 4], "fall": [32, 5], "slide": [37, 5], "a1": [42, 8], "a2": [50, 8], "a3": [58, 10], "up": [68, 5], "jup": [73, 6], "dwn": [79, 7], "hurt": [86, 5], "death": [91, 9], "land": [100, 4], "apex": [104, 5], "slst": [109, 4], "slen": [113, 5], "_": {"cw": 120, "ch": 88, "ax": 43, "ay": 62, "cols": 12}};
+  const PSC = 1.3, PACK = {};
+  ['m', 'f'].forEach(k => { const im = new Image(); const e = PACK[k] = { im, ok: false }; im.onload = () => { e.ok = true; }; im.src = 'img/char_' + k + '.png'; });
+  const ptmp = document.createElement('canvas'); ptmp.width = PM._.cw; ptmp.height = PM._.ch; const ptx = ptmp.getContext('2d');
+  function packFrame(p, t, opts) {
+    const fl = (n, f) => { const m = PM[n]; return [n, m[0] + Math.max(0, Math.min(m[1] - 1, Math.floor(f)))]; };
+    const a = p.atk, moving = Math.abs(p.vx) > 6 && p.ground, air = !p.ground, ph = p.ph || 0;
+    if (opts.dissolve > 0) return fl('death', opts.dissolve * 9);
+    if (p.hurt) return fl('hurt', 1 + ((t * 8) % 2));
+    if (a && p.slash > 0) {
+      const u = clamp(1 - p.slash / a.dur, 0, 0.999), ty = a.type;
+      const nm = ty === 's1' ? 'a1' : ty === 's2' ? 'a2' : ty === 's3' ? 'a3' : ty === 'stab' ? 'a1' : ty === 'dash' ? 'a3' : ty === 'down' || ty === 'dstab' ? 'dwn' : 'a1';
+      return fl(nm, u * PM[nm][1]);
+    }
+    if (p.vic) return fl('idle', (t * 8) % 8);
+    if (p.slideT > 0) return fl('slide', Math.min(4, (0.5 - p.slideT) * 14));
+    if (p.landT > 0) return fl('land', clamp(1 - p.landT / 0.13, 0, 0.99) * 4);
+    if (air) { if (p.vy < -90) return fl('jump', clamp((p.vy + 330) / 60, 0, 3)); if (p.vy < 90) return fl('apex', (p.vy + 90) / 36); return fl('fall', clamp((p.vy - 90) / 70, 0, 4.9)); }
+    if (moving) { const n = p.run ? 'run' : 'walk'; return fl(n, ((ph / (Math.PI * 2)) % 1 + 1) % 1 * 10); }
+    return fl('idle', (t * 9) % 8);
+  }
+  function drawPack(ctx, x, y, p, t, hero, opts) {
+    const e = PACK[hero] || PACK.m, M = PM._, fr = packFrame(p, t, opts), idx = fr[1], f = p.face || 1;
+    const sx = (idx % M.cols) * M.cw, sy = Math.floor(idx / M.cols) * M.ch;
+    ctx.save(); ctx.imageSmoothingEnabled = false;
+    if (opts.floorY != null && !opts.tint && !opts.noRefl) {
+      ctx.save(); ctx.translate(x, y); ctx.scale(f * PSC, -PSC); ctx.globalAlpha = 0.22; ctx.drawImage(e.im, sx, sy, M.cw, M.ch, -M.ax, -M.ay, M.cw, M.ch); ctx.restore();
+    }
+    ctx.translate(x, y); ctx.scale(f * PSC, PSC);
+    if (opts.dissolve > 0) ctx.globalAlpha = 1 - opts.dissolve * 0.85;
+    if (opts.tint) {
+      ptx.clearRect(0, 0, M.cw, M.ch); ptx.globalCompositeOperation = 'source-over'; ptx.drawImage(e.im, sx, sy, M.cw, M.ch, 0, 0, M.cw, M.ch);
+      ptx.globalCompositeOperation = 'source-in'; ptx.fillStyle = opts.tint; ptx.fillRect(0, 0, M.cw, M.ch); ptx.globalCompositeOperation = 'source-over';
+      ctx.drawImage(ptmp, -M.ax, -M.ay);
+    } else ctx.drawImage(e.im, sx, sy, M.cw, M.ch, -M.ax, -M.ay, M.cw, M.ch);
+    ctx.restore();
+  }
+
   function draw(ctx, x, y, p, t, hero, opts) {
     opts = opts || {};
+    if (PACK[hero || 'm'] && PACK[hero || 'm'].ok) return drawPack(ctx, x, y, p, t, hero || 'm', opts);
     H = HERO[hero] || HERO.m;
     const o = pose(p, t);
     build(p, t, o);
