@@ -479,10 +479,16 @@ window.V5_READY = (function () {
     if (node.requiresName) {
       nameInput.style.display = 'block';
       nameInput.value = '';
+      nameInput.setAttribute('maxlength', '20'); nameInput.setAttribute('lang', 'en'); nameInput.setAttribute('autocomplete', 'off'); nameInput.setAttribute('autocapitalize', 'words'); nameInput.setAttribute('spellcheck', 'false');
+      nameInput.placeholder = 'ENTER YOUR NAME (A-Z, 0-9)';
+      const clean = (v) => v.replace(/[^A-Za-z0-9 ]/g, '').replace(/ {2,}/g, ' ');
+      nameInput.onbeforeinput = (ev) => { if (ev.data && /[^A-Za-z0-9 ]/.test(ev.data)) ev.preventDefault(); };
+      nameInput.oninput = () => { const c = clean(nameInput.value); if (c !== nameInput.value) nameInput.value = c; };
+      nameInput.oncompositionend = nameInput.oninput; nameInput.onpaste = () => setTimeout(nameInput.oninput, 0);
       nameInput.focus();
       nameInput.onkeydown = (e) => {
         if (e.key === 'Enter' && nameInput.value.trim()) {
-          const raw = nameInput.value.trim();
+          const raw = clean(nameInput.value).trim(); if (!raw) return;
           nameInput.style.display = 'none';
           const route = Engine.recordName(state, raw);
           if (window.Stats) Stats.ev('name', { name: state.name || raw }, state);
