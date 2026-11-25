@@ -22,9 +22,11 @@
   const CONTROLS =
     'MOVE  A D / ARROWS<br>RUN  SHIFT (3 STAGES)<br>JUMP  W / SPACE / UP<br>SLASH  J / Z / X / CLICK<br>' +
     'AIR SLASH  SLASH IN THE AIR<br>STAB  K<br>SLIDE  S / DOWN / C (IN AIR: DASH)<br>ACT  E / ENTER<br>PAUSE  ESC / P';
+  const CREDITS = 'CHARACTER SPRITES<br>PIXEL ART PLATFORMER CHARACTER PACK<br>BY IBRAHIMART (ITCH.IO)<br>MALE VERSION RECOLORED';
   function build() {
     items = [
       { t: 'RESUME', fn: () => toggle(false) },
+      { t: 'CREDITS', fn: () => { panel.classList.toggle('on'); panel.innerHTML = CREDITS; } },
       { t: 'CONTROLS', fn: () => { panel.classList.toggle('on'); panel.innerHTML = CONTROLS; } },
       { t: () => (music() ? music().textContent.replace('MUSIC: ', 'MUSIC ') : 'MUSIC'), fn: () => { if (music()) music().click(); } }
     ];
