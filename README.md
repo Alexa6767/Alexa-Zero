@@ -11,3 +11,7 @@ On phones, use the on-screen buttons. Click, Space or Enter turns the page in a 
 
 Content warning: flashing lights, sudden sounds, themes of depression and self-harm.
 If any of it feels close to home, please talk to someone you trust or your local emergency number.
+
+## Credits
+
+Character sprites: "Pixel art Platformer Character - Free Sprite Pack" by IbrahimArt (https://ibrahimart.itch.io/free-32x32-platformer-character). Used under the pack's license for personal and commercial game projects. The male version is a recolor of the pack's character.
