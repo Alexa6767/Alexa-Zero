@@ -329,7 +329,7 @@ window.V5_READY = (function () {
       <div class="end-menu-buttons">
         ${isFinal
           ? '<button class="end-menu-button" data-act="notes">READ FULL NOTES</button><button class="end-menu-button" data-act="again">BEGIN AGAIN</button>'
-          : '<button class="end-menu-button" data-act="next">START NEXT SESSION</button><button class="end-menu-button" data-act="notes">READ FULL NOTES</button><button class="end-menu-button" data-act="reset">RESET AI</button>'}
+          : '<button class="end-menu-button" data-act="next">CONTINUE</button>'}
       </div>`;
     endScreen.style.display = 'block';
 
