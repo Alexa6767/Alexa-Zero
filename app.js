@@ -480,16 +480,19 @@ window.V5_READY = (function () {
       nameInput.style.display = 'block';
       nameInput.value = '';
       nameInput.setAttribute('maxlength', '20'); nameInput.setAttribute('lang', 'en'); nameInput.setAttribute('autocomplete', 'off'); nameInput.setAttribute('autocapitalize', 'words'); nameInput.setAttribute('spellcheck', 'false');
-      nameInput.placeholder = 'ENTER YOUR NAME (A-Z, 0-9)';
+      nameInput.placeholder = 'ENTER YOUR NAME';
       const clean = (v) => v.replace(/[^A-Za-z0-9 ]/g, '').replace(/ {2,}/g, ' ');
-      nameInput.onbeforeinput = (ev) => { if (ev.data && /[^A-Za-z0-9 ]/.test(ev.data)) ev.preventDefault(); };
-      nameInput.oninput = () => { const c = clean(nameInput.value); if (c !== nameInput.value) nameInput.value = c; };
+      let hint = document.getElementById('name-hint');
+      if (!hint) { hint = document.createElement('div'); hint.id = 'name-hint'; hint.textContent = 'English letters and numbers only'; nameInput.insertAdjacentElement('afterend', hint); }
+      let hintT = 0; const flash = () => { hint.style.opacity = '1'; clearTimeout(hintT); hintT = setTimeout(() => { hint.style.opacity = '0'; }, 3000); };
+      nameInput.onbeforeinput = (ev) => { if (ev.data && /[^A-Za-z0-9 ]/.test(ev.data)) { ev.preventDefault(); flash(); } };
+      nameInput.oninput = () => { const c = clean(nameInput.value); if (c !== nameInput.value) { nameInput.value = c; flash(); } };
       nameInput.oncompositionend = nameInput.oninput; nameInput.onpaste = () => setTimeout(nameInput.oninput, 0);
       nameInput.focus();
       nameInput.onkeydown = (e) => {
         if (e.key === 'Enter' && nameInput.value.trim()) {
           const raw = clean(nameInput.value).trim(); if (!raw) return;
-          nameInput.style.display = 'none';
+          nameInput.style.display = 'none'; hint.style.opacity = '0';
           const route = Engine.recordName(state, raw);
           if (window.Stats) Stats.ev('name', { name: state.name || raw }, state);
           persist();
