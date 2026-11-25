@@ -1,6 +1,6 @@
 /* Sprites: pose-driven pixel characters (male + female) with outline, hair physics, slash FX and floor reflection. */
 (function () {
-  const OX = 56, OY = 84, SW = 112, SH = 96, RH = 132;
+  const OX = 64, OY = 100, SW = 128, SH = 112, RH = 150;
   const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); x.imageSmoothingEnabled = false; return [c, x]; };
   const [spr, sc] = mk(SW, SH), [sil, silc] = mk(SW, SH), [out, oc] = mk(SW, SH), [refl, rc] = mk(SW, RH);
   const R = Math.round;
@@ -9,17 +9,15 @@
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const ease = (t) => t * t * (3 - 2 * t);
 
-  const OUTLINE = '#0d0a12';
+  const OUTLINE = 'rgba(30,18,22,0.6)';
   const HERO = {
     m: {
-      skin: '#f0c7a4', skinD: '#c99573', hair: '#1d1824', hairL: '#43385a', hairD: '#100d16',
-      shirt: '#efeae0', shirtD: '#bdb7ad', vest: '#8a5530', vestL: '#b0743f', vestD: '#5d3720',
-      pants: '#2c2e3e', pantsD: '#1c1d29', shoe: '#3a2a24', sole: '#e9e6e0', belt: '#15121a', long: false
+      leg: 9.5, torso: 13, skin: '#f1cdb0', skinD: '#d3a688', hair: '#3b2a25', hairL: '#5b4237', hairD: '#241817', shirt: '#f1eee9', shirtD: '#c9c4c4',
+      vest: '#8e4b2b', vestL: '#ad6238', vestD: '#5f301b', pants: '#2b2b32', pantsL: '#40404a', pantsD: '#1a1a20', shoe: '#1c1b20', shoeL: '#3a3944', long: false
     },
     f: {
-      skin: '#f5cfb2', skinD: '#cf9d80', hair: '#2a1422', hairL: '#6b2f4d', hairD: '#170a14',
-      shirt: '#f4f0ea', shirtD: '#c4bdb8', vest: '#3e7a6a', vestL: '#5ea08c', vestD: '#285448',
-      pants: '#252638', pantsD: '#171822', shoe: '#d8334f', sole: '#f0eaea', belt: '#15121a', long: true, skirt: '#27304f', skirtL: '#3a4672'
+      leg: 8, torso: 11, skin: '#f6d3c6', skinD: '#dba99b', hair: '#1b1722', hairL: '#4b4a6e', hairD: '#100d16', dress: '#f4f2f7', dressD: '#cbc9db', dressL: '#ffffff',
+      shoe: '#e9e7ef', shoeD: '#a8a6b8', long: true
     }
   };
 
@@ -47,16 +45,23 @@
     down: { dur: 0.34, lo: 0.25, hi: 0.95, reach: 44, col: ['#ffffff', '#ff3355'] },
     stab: { dur: 0.32, lo: 0.30, hi: 0.70, reach: 58, col: ['#ffffff', '#7fe9ff'] },
     kick: { dur: 0.32, lo: 0.30, hi: 0.72, reach: 40, col: ['#ffffff', '#ffd27f'] },
+    dstab: { dur: 0.4, lo: 0.12, hi: 0.95, reach: 30, col: ['#ffffff', '#7fe9ff'] },
     dash: { dur: 0.24, lo: 0.0, hi: 1.0, reach: 36, col: ['#ffffff', '#7fe9ff'] }
   };
 
   /* ---- pose ---- */
   function pose(p, t) {
+    const o = pose0(p, t), K = H.leg / 8, dy = o.hy * (K - 1) - (H.torso - 11) * Math.cos(o.lean);
+    o.hy *= K; if (o.ha) o.ha = [o.ha[0], o.ha[1] + dy]; if (o.hb) o.hb = [o.hb[0], o.hb[1] + dy];
+    return o;
+  }
+  function pose0(p, t) {
     const o = { hx: 0, hy: -16, lean: 0.05, hd: 0, fa: [5, 0], fb: [-3, 0], ha: null, hb: null, armed: false, ang: 0, blen: 22, sa: 1, sb: 1, face: 'n', hair: 0.3, skirt: 0, blade: null, shut: false };
-    const ph = p.ph || 0, moving = Math.abs(p.vx) > 6 && p.ground, running = moving && p.run, air = !p.ground;
+    let ph = p.ph || 0; const moving = Math.abs(p.vx) > 6 && p.ground, running = moving && p.run, air = !p.ground;
+    if (running) ph = Math.floor(ph / (Math.PI / 4)) * (Math.PI / 4); // 8-frame run cycle
     const a = p.atk; let u = a ? clamp(1 - p.slash / a.dur, 0, 1) : 0;
     const arm = (sh, ang, r) => [sh.x + Math.cos(ang) * r, sh.y + Math.sin(ang) * r];
-    const sh0 = () => ({ x: o.hx + Math.sin(o.lean) * 12, y: o.hy - Math.cos(o.lean) * 12 });
+    const sh0 = () => ({ x: o.hx + Math.sin(o.lean) * 11, y: o.hy - Math.cos(o.lean) * 11 });
     if (p.hurt) {
       o.lean = -0.32; o.hy = -15; o.fa = [6, 0]; o.fb = [-6, 0]; o.face = 'hurt'; o.hair = 1.4;
       const sh = sh0(); o.ha = [sh.x + 9, sh.y - 1]; o.hb = [sh.x - 8, sh.y + 2]; o.sa = -1; return o;
@@ -107,6 +112,9 @@
         o.lean = lerp(0.05, 0.5, k); o.hy = -16; o.fa = [2, 0];
         o.fb = [lerp(-3, -20, k), lerp(0, -16, k)]; o.sb = 1;
         const sh = sh0(); o.ha = [sh.x + 5 + 2 * k, sh.y + 7]; o.hb = [sh.x + 2 + 2 * k, sh.y + 9]; o.sa = 1; o.armed = false; o.hair = 1.3;
+      } else if (ty === 'dstab') {
+        o.lean = 0.08; o.hy = -17; o.fa = [2, -9]; o.fb = [-4, -6]; o.armed = true; const sh = sh0();
+        o.ha = [sh.x + 4, sh.y - 2]; o.ang = Math.PI / 2 - 0.08; o.blen = 27; o.sa = -1; o.hb = [sh.x + 1, sh.y + 2]; o.sb = -1; o.hair = -0.8;
       } else if (ty === 'dash') {
         o.lean = 1.15; o.hy = -20; o.fa = [-6, -9]; o.fb = [-13, -11]; o.armed = true;
         const sh = sh0(); o.ha = [sh.x + 7, sh.y + 3]; o.ang = 0.05; o.blen = 26; o.sa = 1; o.hb = [sh.x - 4, sh.y + 8]; o.hair = 1.6;
@@ -117,6 +125,9 @@
       o.hy = -7.5; o.lean = -0.62; o.fa = [16, -2]; o.fb = [-3, -1]; o.face = 'fierce'; o.armed = true;
       const sh = sh0(); o.ha = [sh.x - 6, sh.y + 5]; o.ang = Math.PI - 0.35; o.sa = 1; o.hb = [sh.x + 8, sh.y + 7]; o.sb = 1; o.hair = 1.5; o.blen = 20;
       return o;
+    }
+    if (p.landT > 0) {
+      o.hy = -9.5; o.lean = 0.28; o.fa = [7, 0]; o.fb = [-6, 0]; const sh = sh0(); o.ha = [sh.x + 7, sh.y + 6]; o.hb = [sh.x - 6, sh.y + 7]; o.sa = 1; o.sb = 1; o.hair = 0.8; o.skirt = 1.2; return o;
     }
     if (air) {
       o.face = p.vy < 0 ? 'fierce' : 'n'; o.armed = false;
@@ -145,142 +156,130 @@
     const br = Math.sin(t * 2.3), shift = Math.sin(t * 0.9) * 0.6;
     o.hy = -16 + br * 0.5; o.hx = shift * 0.4; o.lean = 0.03 + br * 0.015;
     o.fa = [5 + shift * 0.3, 0]; o.fb = [-4, 0]; o.face = (hash(Math.floor(t * 0.5)) > 0.8 && Math.sin(t * 3) > 0.4) ? 'smirk' : 'n';
-    const sh = sh0(); o.ha = [o.hx + 5.5, o.hy - 1]; o.hb = [o.hx - 4, o.hy - 1]; o.sa = 1; o.sb = 1; o.hair = 0.2 + br * 0.15; o.skirt = 0.1;
+    const sh = sh0(); o.ha = [o.hx + 5.5, o.hy - 1]; o.hb = [o.hx - 4, o.hy - 1]; o.sa = 1; o.sb = 1; o.hair = 0.02 + br * 0.03; o.skirt = 0.1;
     return o;
   }
 
   /* ---- drawing ---- */
+  const E = (cx, cy, rx, ry, c) => {
+    sc.fillStyle = c;
+    for (let yy = -ry; yy <= ry; yy++) { const half = rx * Math.sqrt(Math.max(0, 1 - (yy / ry) * (yy / ry))); sc.fillRect(R(OX + cx - half), R(OY + cy + yy), Math.max(1, R(half * 2)), 1); }
+  };
   function drawBlade(hx, hy, ang, len) {
     const c = Math.cos(ang), s = Math.sin(ang);
-    L(hx - c * 4, hy - s * 4, hx + c * 1, hy + s * 1, 2, '#8a1e2e');                 // grip
-    L(hx + c * 1, hy + s * 1, hx + c * (len + 1), hy + s * (len + 1), 2, '#e6eef6');  // blade
-    L(hx + c * 3, hy + s * 3 + 1, hx + c * len, hy + s * len + 1, 1, '#8c9db2');     // edge shade
-    L(hx + c * 3 - s, hy + s * 3 + c, hx + c * 1 + s, hy + s * 1 - c, 1, '#d9b24a'); // guard
+    L(hx - c * 4, hy - s * 4, hx + c * 1, hy + s * 1, 2, '#6a1e2a');
+    L(hx + c * 1, hy + s * 1, hx + c * (len + 1), hy + s * (len + 1), 2, '#eef2f8');
+    L(hx + c * 3, hy + s * 3 + 1, hx + c * len, hy + s * len + 1, 1, '#9aa8bc');
+    L(hx + c * 1 - s * 1.5, hy + s * 1 + c * 1.5, hx + c * 1 + s * 1.5, hy + s * 1 - c * 1.5, 1, '#c9a43e');
     P(hx + c * len - 1, hy + s * len - 1, 2, 2, '#ffffff');
   }
 
-  function face(hx, hy, o, t, p) {
-    const e = o.face;
-    // eye
+  function headDraw(hdx, hdy, o, t) {
+    const e = o.face, run = Math.max(0, o.hair), X = (cx, cy, rx, ry, c) => E(hdx + cx, hdy + cy, rx, ry, c), Q = (x, y, w, h, c) => P(hdx + x, hdy + y, w, h, c);
     const blink = hash(Math.floor(t * 1.6)) > 0.94 && e === 'n';
-    const ey = hy + 0;
-    if (e === 'hurt') { P(hx + 1, ey - 1, 1, 1, '#1a1a22'); P(hx + 3, ey - 1, 1, 1, '#1a1a22'); P(hx + 2, ey, 1, 1, '#1a1a22'); P(hx + 1, ey + 1, 1, 1, '#1a1a22'); P(hx + 3, ey + 1, 1, 1, '#1a1a22'); }
-    else if (e === 'happy') { P(hx + 1, ey, 1, 1, '#1a1a22'); P(hx + 2, ey - 1, 2, 1, '#1a1a22'); P(hx + 4, ey, 1, 1, '#1a1a22'); }
-    else if (blink) P(hx + 1, ey + 1, 4, 1, '#2a1a14');
-    else {
-      P(hx + 1, ey - 1, 4, 3 + (e === 'fierce' ? -0 : 0), '#fff');
-      P(hx + 3, ey - 1, 2, 3, e === 'fierce' ? '#d8334f' : (H.long ? '#3a6a8a' : '#2a1d2a'));
-      P(hx + 4, ey - 1, 1, 1, '#fff');
-      if (H.long) { P(hx + 0, ey - 2, 2, 1, '#1a1018'); P(hx + 4, ey - 2, 1, 1, '#1a1018'); }
+    X(0, 2, 8.6, 8.6, H.skinD); X(1, 0.6, 7.8, 7.8, H.skin);                       // face with soft shade
+    if (!H.long) {
+      // curly messy hair covering the eyes
+      X(-8.5 - run * 2.5, 1, 3.2, 3.4, H.hair); X(-7 - run * 2, 7, 3.2, 3, H.hair); X(-9.5 - run * 3.5, 4, 2.6, 2.6, H.hairL);
+      X(-1, -3, 10.8, 8.8, H.hair); X(-5, 3, 6, 7, H.hair); X(2.5, -1.5, 8.2, 5.2, H.hair);
+      X(6.5, 3, 2.2, 2.6, H.hair); X(3, 4, 2, 2.2, H.hair); X(-0.5, 3.5, 2, 2.6, H.hairD);
+      X(-4, -10, 3.2, 2.6, H.hair); X(3, -10, 3.4, 2.6, H.hair); X(8.5, -6, 2.8, 3.2, H.hair); X(-9, -6, 2.8, 3, H.hair);
+      X(-3, -7, 3.6, 1.8, H.hairL); X(4, -6, 3.2, 1.5, H.hairL); X(-8, 2, 1.6, 2.4, H.hairL); X(0, 0, 4.5, 1.6, H.hairD);
+      Q(10, 3, 2, 2, H.skin); Q(10, 4, 2, 1, H.skinD);                           // nose peeking below the fringe
+      const my = 7;
+      if (e === 'happy') { Q(6, my - 1, 5, 3, '#7a2a30'); Q(6, my - 1, 5, 1, '#ffffff'); }
+      else if (e === 'hurt') Q(7, my - 1, 3, 3, '#5a1a20');
+      else if (e === 'fierce') { Q(6, my, 5, 1, '#6a3a30'); Q(7, my + 1, 3, 1, '#ffffff'); }
+      else if (e === 'smirk') { Q(6, my, 4, 1, '#9a5a4a'); Q(10, my - 1, 1, 1, '#9a5a4a'); }
+      else Q(7, my, 3, 1, '#9a5a4a');
+    } else {
+      // long straight black hair, blunt bangs, simple dot eyes
+      X(-1, -3, 10.4, 8.2, H.hair); Q(-9, -6, 19, 5, H.hair); Q(-3, -1, 3, 9, H.hair); Q(8, -2, 2, 6, H.hair); Q(7, -3, 3, 2, H.hair);
+      X(-4, -8, 4, 1.6, H.hairL); X(3, -7.5, 3, 1.2, H.hairL); Q(-2, -5, 10, 1, H.hairD);
+      if (e === 'hurt') { Q(4, 1, 1, 1, '#1a1620'); Q(6, 1, 1, 1, '#1a1620'); Q(5, 2, 1, 1, '#1a1620'); Q(4, 3, 1, 1, '#1a1620'); Q(6, 3, 1, 1, '#1a1620'); }
+      else if (e === 'happy') { Q(3, 3, 1, 1, '#1a1620'); Q(4, 2, 2, 1, '#1a1620'); Q(6, 3, 1, 1, '#1a1620'); }
+      else if (blink) Q(3, 3, 4, 1, '#1a1620');
+      else { Q(4, 1, 2, 3, '#1a1620'); Q(4, 1, 1, 1, '#ffffff'); }
+      if (e === 'fierce') Q(3, -1, 5, 1, H.hairD);
+      Q(10, 4, 1, 1, H.skinD);
+      if (e !== 'hurt') Q(5, 5, 3, 1, '#f1a0a4');
+      const my = 7;
+      if (e === 'happy') { Q(6, my - 1, 4, 2, '#9a3a44'); Q(6, my - 1, 4, 1, '#ffffff'); }
+      else if (e === 'hurt') Q(7, my - 1, 2, 2, '#7a2a30');
+      else Q(7, my, 2, 1, '#c4666e');
     }
-    // brow
-    const bw = e === 'fierce' || e === 'hurt' ? 1 : 0;
-    P(hx + 1, ey - 3 + (bw ? 1 : 0), 5, 1, H.hairD); if (bw) P(hx + 5, ey - 3, 1, 1, H.hairD);
-    // nose
-    P(hx + 6, ey + 2, 1, 2, H.skinD);
-    // mouth
-    const my = hy + 5;
-    if (e === 'happy') { P(hx + 3, my - 1, 4, 2, '#7a2a30'); P(hx + 3, my - 1, 4, 1, '#fff'); }
-    else if (e === 'hurt') P(hx + 4, my, 2, 2, '#5a1a20');
-    else if (e === 'fierce') { P(hx + 3, my, 4, 1, '#5a2a30'); P(hx + 3, my + 1, 3, 1, '#fff'); }
-    else if (e === 'smirk') { P(hx + 3, my, 3, 1, '#8a4a4a'); P(hx + 6, my - 1, 1, 1, '#8a4a4a'); }
-    else P(hx + 3, my, 3, 1, '#8a4a4a');
-    if (H.long) { P(hx + 1, my - 2, 2, 1, '#f09a9a'); }
-    // ear
-    P(hx - 3, hy + 0, 2, 3, H.skinD);
   }
 
-  function hairBack(hdx, hdy, o, t, p) {
-    const sway = o.hair, run = Math.max(0, sway);
-    if (H.long) {
-      // long hair: chain of segments streaming back, lifting with speed
-      let px = hdx - 5, py = hdy - 2;
-      const n = 9;
-      for (let i = 0; i < n; i++) {
-        const k = i / (n - 1), lift = run * 0.9;
-        const nx = px - (1.6 + run * 2.2), ny = py + 3.6 - lift * (1.2 + k * 3.2) + Math.sin(t * 4 + i * 0.7) * 0.5 * (0.4 + run * 0.4);
-        L(px, py, nx, ny, 6 - k * 3, H.hair); L(px + 1, py, nx + 1, ny, 2, H.hairL);
-        px = nx; py = ny;
-      }
-      P(px - 1, py - 1, 3, 3, H.hairD);
-    } else {
-      // messy back tuft, attached to the skull and whipping back with speed
-      L(hdx - 5, hdy - 2, hdx - 9 - run * 4, hdy + 1 + Math.sin(t * 6) * 0.6 + run * 1.2, 3, H.hair);
-      L(hdx - 5, hdy + 2, hdx - 8 - run * 3, hdy + 4 + run, 2, H.hairL);
+  function hairBackLong(hdx, hdy, o, t) {
+    if (!H.long) return;
+    const run = Math.min(0.4, Math.max(0, o.hair) * 0.3); let px = hdx - 7, py = hdy - 1; const n = 11;
+    for (let i = 0; i < n; i++) {
+      const k = i / (n - 1), lift = run * 0.9;
+      const nx = px - (1.4 + run * 2.4), ny = py + 3.9 - lift * (1.2 + k * 3.4) + Math.sin(t * 4 + i * 0.7) * 0.5 * (0.4 + run * 0.4);
+      L(px, py, nx, ny, 9 - k * 4.5, H.hair); L(px + 2, py, nx + 2, ny, 2, H.hairL);
+      px = nx; py = ny;
     }
-  }
-  function hairFront(hdx, hdy, o, t) {
-    const run = Math.max(0, o.hair);
-    if (H.long) {
-      P(hdx - 6, hdy - 7, 13, 5, H.hair); P(hdx - 7, hdy - 5, 4, 12, H.hair);          // cap + back mass
-      P(hdx - 2, hdy - 8, 8, 2, H.hairL);                                               // shine band
-      P(hdx + 1, hdy - 5, 6, 3, H.hair); P(hdx + 5, hdy - 3, 2, 5, H.hair);             // side-swept bangs
-      P(hdx + 4, hdy + 0, 1, 3, H.hairD);
-      P(hdx - 5, hdy - 6, 3, 2, '#e8405a'); P(hdx - 5, hdy - 5, 2, 1, '#ff8aa0');       // hair clip
-    } else {
-      P(hdx - 6, hdy - 7, 13, 4, H.hair);                                               // cap
-      P(hdx - 7, hdy - 5, 3, 11, H.hair);                                               // back
-      P(hdx - 1, hdy - 11, 3, 4, H.hair); P(hdx - 5, hdy - 10, 3, 4, H.hair); P(hdx + 3, hdy - 10, 3, 4, H.hair); P(hdx + 6, hdy - 8, 2, 3, H.hair); // spikes
-      P(hdx - 2, hdy - 12, 1, 2, H.hairL); P(hdx + 4, hdy - 11, 1, 2, H.hairL); P(hdx - 4, hdy - 9, 2, 1, H.hairL);
-      P(hdx + 1, hdy - 4, 6, 3, H.hair); P(hdx + 4, hdy - 1, 2, 4, H.hair); P(hdx + 6, hdy - 3, 1, 5, H.hair); // fringe over the eye
-      P(hdx + 2, hdy - 1, 1, 1, H.hairD); P(hdx - 3, hdy - 7, 5, 1, H.hairL);
-    }
+    P(px - 1, py - 1, 4, 3, H.hairD);
   }
 
   function build(p, t, o) {
     sc.clearRect(0, 0, SW, SH);
-    const hx = o.hx, hy = o.hy, sx = hx + Math.sin(o.lean) * 12, sy = hy - Math.cos(o.lean) * 12;
-    const hdx = sx + Math.sin(o.lean * 0.7 + o.hd) * 8, hdy = sy - Math.cos(o.lean * 0.7 + o.hd) * 8 + 1;
-    hairBack(hdx, hdy, o, t, p);
-    // back arm
-    const sleeve = H.shirt, sleeveD = H.shirtD;
-    const armDraw = (tg, s, col, forearm) => {
-      if (!tg) return;
-      const j = ik(sx, sy + 1, tg[0], tg[1], 5.6, 5.6, s);
-      L(sx, sy + 1, j.kx, j.ky, 3, col); L(j.kx, j.ky, j.x, j.y, 3, forearm);
-      P(j.x - 1, j.y - 1, 3, 3, H.skin); return j;
+    const hx = o.hx, hy = o.hy, sx = hx + Math.sin(o.lean) * H.torso, sy = hy - Math.cos(o.lean) * H.torso;
+    const hdx = sx + Math.sin(o.lean * 0.7 + o.hd) * 10, hdy = sy - Math.cos(o.lean * 0.7 + o.hd) * 10.5;
+    hairBackLong(hdx, hdy, o, t);
+    const male = !H.long;
+    const sleeve = male ? H.shirt : H.dress, sleeveD = male ? H.shirtD : H.dressD;
+    const armDraw = (tg, s, back) => {
+      if (!tg) return null;
+      const j = ik(sx, sy + 1, tg[0], tg[1], 5.4, 5.4, s);
+      L(sx, sy + 1, j.kx, j.ky, 4, back ? sleeveD : sleeve);
+      L(j.kx, j.ky, j.x, j.y, 3, back ? H.skinD : H.skin);
+      if (male) P(j.kx - 2, j.ky - 1, 4, 3, back ? sleeveD : sleeve);
+      E(j.x + 0.5, j.y + 0.5, 2, 2, back ? H.skinD : H.skin);
+      return j;
     };
-    armDraw(o.hb, o.sb, sleeveD, H.long ? sleeveD : H.skinD);
-    // legs
-    const leg = (ft, col, colD, sgn) => {
-      const j = ik(hx, hy, ft[0], ft[1] - 2.5, 8, 8, -1);
-      L(hx, hy, j.kx, j.ky, 5, col); L(j.kx, j.ky, j.x, j.y, 4, col);
-      L(j.kx, j.ky, j.x, j.y, 1, colD);
-      // shoe
-      const sx0 = j.x - 2, sy0 = ft[1] - 3.5;
-      P(sx0, sy0, 7, 4, H.shoe); P(sx0, sy0 + 3, 7, 1, H.sole); P(sx0 + 4, sy0, 2, 1, '#ffffff22' === 0 ? '#fff' : H.sole);
-      P(sx0 - 0, sy0 - 1, 3, 1, H.pants === col ? colD : col);
-    };
-    leg(o.fb, H.pantsD, H.pantsD);
-    // sheath always on the back hip
-    L(hx + 3, hy - 1, hx - 16, hy + 5, 2, '#1c1822'); L(hx + 3, hy - 2, hx + 5, hy - 2.5, 2, '#8a1e2e');
-    // torso: vest over shirt
-    L(hx, hy - 1, sx, sy, 8, H.vest);
-    L(hx + 2, hy - 1, sx + 2, sy, 2, H.vestL); L(hx - 3, hy - 1, sx - 3, sy, 2, H.vestD);
-    P(sx + 1, sy - 2, 4, 3, H.shirt); P(sx + 2, sy + 1, 2, 2, H.shirt); P(sx + 3, sy - 3, 2, 1, H.shirtD);          // collar + V neck
-    if (H.long) { P(sx + 3, sy + 4, 2, 2, H.vestL); P(sx + 3, sy + 7, 2, 2, H.vestL); }
-    else { P(sx + 4, sy + 1, 1, 6, H.vestD); P(sx - 1, sy + 3, 3, 1, H.vestL); }
-    P(hx - 4, hy - 3, 8, 2, H.belt); P(hx + 1, hy - 3, 2, 2, '#d9b24a');
-    if (H.long) {
-      const fl = o.skirt, w0 = 4;
-      for (let r = 0; r < 7; r++) {
-        const w = w0 + r * 0.75, off = -fl * r * 0.9;
-        P(hx - w + off, hy - 3 + r, R(w * 2), 1, r % 2 ? H.skirt : H.skirtL);
-        for (let q = -w + 2; q < w; q += 3) P(hx + q + off, hy - 3 + r, 1, 1, H.pantsD);
+    armDraw(o.hb, o.sb, true);
+    const leg = (ft, back) => {
+      const j = ik(hx, hy, ft[0], ft[1] - 3, H.leg, H.leg, -1);
+      if (male) {
+        const c = back ? H.pantsD : H.pants;
+        L(hx, hy, j.kx, j.ky, 7, c); L(j.kx, j.ky, j.x, j.y, 6, c);
+        if (!back) { L(hx + 1, hy, j.kx + 1, j.ky, 2, H.pantsL); L(j.kx + 1, j.ky, j.x + 1, j.y, 2, H.pantsL); }
+        E(j.x + 1.5, ft[1] - 2.2, 5, 2.6, H.shoe); P(j.x - 1, ft[1] - 4, 4, 1, H.shoeL); P(j.x - 3, ft[1] - 1, 10, 1, '#0c0c10');
+      } else {
+        const skin = back ? H.skinD : H.skin;
+        L(hx, hy, j.kx, j.ky, 4, skin); L(j.kx, j.ky, j.x, j.y, 4, back ? H.dressD : H.dress);
+        E(j.x + 1.5, ft[1] - 2.2, 5, 2.6, back ? H.shoeD : H.shoe); P(j.x - 3, ft[1] - 1, 10, 1, H.shoeD);
       }
-      P(hx - w0 - 6 * 0.75 - 1 - fl * 6 * 0.9, hy + 3, R((w0 + 6 * 0.75) * 2) + 2, 1, '#aab4e0');
+    };
+    leg(o.fb, true);
+    // sheath on the back hip
+    L(hx + 3, hy - 1, hx - 15, hy + 5, 2, '#1c1822'); L(hx + 3, hy - 2, hx + 5, hy - 2.5, 2, '#6a1e2a');
+    if (male) {
+      L(hx, hy - 1, sx, sy, 9, H.vest);
+      L(hx + 3, hy - 1, sx + 3, sy, 2, H.vestL); L(hx - 3, hy - 1, sx - 3, sy, 2, H.vestD);
+      P(hx - 4, hy - 3, 9, 3, H.vestD); P(hx - 4, hy - 3, 9, 1, H.vestL);
+      E(sx + 1, sy - 2, 4.4, 3.2, H.shirt); P(sx + 1, sy - 1, 4, 1, H.shirtD);               // collar
+      for (let r = 0; r < 5; r++) P(sx + 2 - r * 0 + (r > 2 ? 1 : 0), sy - 1 + r, 4 - Math.min(3, r), 1, H.shirt); // V neck
+      P(sx + 2, sy + 4, 1, 1, H.vestD);
+    } else {
+      L(hx, hy - 1, sx, sy, 8, H.dress); L(hx - 3, hy - 1, sx - 3, sy, 2, H.dressD); L(hx + 3, hy - 1, sx + 3, sy, 1, H.dressL);
+      E(sx + 1, sy - 2, 4, 2.6, H.dressL); P(sx + 1, sy - 2, 4, 1, H.dressD);
+      P(hx - 4, hy - 4, 9, 1, H.dressD);
+      const fl = o.skirt;
+      for (let r = 0; r < 8; r++) {
+        const w = 4.6 + r * 0.95, off = -fl * r * 0.9;
+        P(hx - w + off, hy - 3 + r, R(w * 2), 1, r % 2 ? H.dress : H.dressL);
+        for (let q = -w + 2; q < w; q += 3) P(hx + q + off, hy - 3 + r, 1, 1, H.dressD);
+      }
+      P(hx - 4.6 - 7 * 0.95 - fl * 7 * 0.9, hy + 4, R((4.6 + 7 * 0.95) * 2), 1, H.dressD);
     }
-    leg(o.fa, H.pants, H.pantsD);
+    leg(o.fa, false);
     // head
-    P(hdx - 2, hdy + 3, 5, 5, H.skinD);                                  // neck
-    P(hdx - 5, hdy - 5, 12, 11, H.skin);                                  // face
-    P(hdx - 5, hdy + 3, 12, 3, H.skin); P(hdx + 1, hdy + 5, 5, 1, H.skinD); // jaw shade
-    hairFront(hdx, hdy, o, t);
-    face(hdx, hdy, o, t, p);
-    // front (weapon) arm over the body
-    const j = armDraw(o.ha, o.sa, sleeve, H.long ? sleeve : H.skin);
+    P(hdx - 2, hdy + 6, 5, 4, H.skinD);
+    headDraw(hdx, hdy, o, t);
+    const j = armDraw(o.ha, o.sa, false);
     if (o.armed && j) drawBlade(j.x, j.y, o.ang, o.blen);
-    if (o.armed && !j) { }
     return o;
   }
 
@@ -305,7 +304,7 @@
   function slashFx(ctx, x, y, p, t) {
     const a = p.atk; if (!a || p.slash <= 0) return;
     const u = clamp(1 - p.slash / a.dur, 0, 1), f = p.face, ty = a.type;
-    const sx = x + f * 4, sy = y - 26;
+    const sx = x + f * 4, sy = y - 27;
     ctx.save();
     const px = (xx, yy, w, h, c, al) => { ctx.globalAlpha = al; ctx.fillStyle = c; ctx.fillRect(R(xx), R(yy), w, h); };
     const arc = (cx, cy, r, a0, a1, th, cols, fade) => {
@@ -325,6 +324,7 @@
     else if (ty === 'down') { const e = clamp((u - 0.15) / 0.55, 0, 1); if (e > 0) arc(sx, sy - 2, 32, -2.1, lerp(-2.1, 1.35, ease(e)), 8, a.col, fade); }
     else if (ty === 'stab') { const e = clamp((u - 0.28) / 0.25, 0, 1); if (e > 0) for (let i = 0; i < 6; i++) { px(x + f * (10 + e * 40) - (f > 0 ? i * 8 + 6 : -i * 8), y - 22 - i * 0.2 + (hash(i + Math.floor(t * 30)) - 0.5) * 3, 8, 1 + (i < 2 ? 1 : 0), i % 2 ? a.col[1] : a.col[0], fade * (1 - i * 0.14)); } }
     else if (ty === 'kick') { const e = clamp((u - 0.28) / 0.22, 0, 1); if (e > 0) arc(x, y - 14, 24, Math.PI - 0.9, Math.PI + 0.7, 5, a.col, fade); }
+    else if (ty === 'dstab') { for (let i = 0; i < 7; i++) px(x + f * 9 - 1 + (hash(i + Math.floor(t * 30)) - 0.5) * 3, y - 32 + i * 9, 2, 9, i % 2 ? a.col[1] : a.col[0], fade * (1 - i * 0.08)); }
     else if (ty === 'dash') { for (let i = 0; i < 7; i++) px(x - f * (6 + i * 8) - (f > 0 ? 8 : 0), y - 30 + i * 4, 10 + i * 2, 2, i % 2 ? a.col[1] : a.col[0], 0.55 - i * 0.06); }
     ctx.restore(); ctx.globalAlpha = 1;
   }
