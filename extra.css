@@ -72,3 +72,8 @@ body.is-paused #world-pad { display:none !important; }
 }
 
 @media (max-width:700px){#world-hint{left:0;transform:none;width:100%;max-width:none;box-sizing:border-box;text-align:left}}
+
+/* v6.1 */
+#world-pad .pad-r { gap:10px 9px; margin-bottom:22px; margin-right:2px; }
+#world-pad .pad-r button { width:46px; height:38px; }
+@media (max-height:520px) and (orientation:landscape) { #world-pad .pad-r { gap:8px; margin-bottom:12px; } }
