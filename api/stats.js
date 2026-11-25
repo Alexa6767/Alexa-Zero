@@ -3,7 +3,9 @@ const crypto = require('crypto');
 const U = process.env.KV_REST_API_URL, T = process.env.KV_REST_API_TOKEN, K = process.env.STATS_KEY || '';
 async function redis(cmds) {
   const r = await fetch(U + '/pipeline', { method: 'POST', headers: { Authorization: 'Bearer ' + T, 'Content-Type': 'application/json' }, body: JSON.stringify(cmds) });
-  return (await r.json()).map(x => x.result);
+  const j = await r.json();
+  if (!Array.isArray(j)) throw new Error('redis:' + JSON.stringify(j).slice(0, 160));
+  return j.map(x => { if (x.error) throw new Error('redis:' + String(x.error).slice(0, 160)); return x.result; });
 }
 const obj = (a) => { const o = {}; for (let i = 0; a && i < a.length; i += 2) o[a[i]] = a[i + 1]; return o; };
 module.exports = async (req, res) => {
@@ -27,5 +29,5 @@ module.exports = async (req, res) => {
     out.players = (full ? players : changed).map(brief);
     if (q.choices) { const id = act.find(x => x.startsWith(String(q.choices))); if (id) out.choiceLog = (await redis([['LRANGE', 'c:' + id, '0', '-1']]))[0].map(x => JSON.parse(x)); }
     res.status(200).json(out);
-  } catch (e) { res.status(500).json({ error: 'fail' }); }
+  } catch (e) { res.status(500).json({ error: 'fail', why: String(e && e.message).slice(0, 200) }); }
 };
