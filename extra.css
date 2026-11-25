@@ -52,3 +52,23 @@ body.is-paused #world-pad { display:none !important; }
 @keyframes csOut { 0%{filter:none} 40%{filter:brightness(2.2)} 100%{filter:brightness(0);opacity:0} }
 @media (max-width:700px) { #pause-btn { top:8px; right:8px; } #pause .pz-wrap { left:6%; width:88%; } #world-pad .pad-r button { width:50px; height:42px; font-size:8px; } #world-pad .pad-r { max-width:72%; } }
 @media (max-width:700px){#world-hint{padding:0 96px 0 8px;font-size:7px;line-height:1.6}}
+/* v6 touch pad: joystick + compact action buttons */
+#world-pad { bottom:54px; padding:0 12px; align-items:flex-end; }
+#world-pad .pad-l { display:block; }
+#joy { position:relative; width:96px; height:96px; border-radius:50%; touch-action:none; background:radial-gradient(circle at 50% 50%, #ff004022 0%, #00000099 70%); border:2px solid #ff0040aa; box-shadow:0 0 14px #ff004044, inset 0 0 16px #000; }
+#joy::before { content:''; position:absolute; inset:14px; border-radius:50%; border:1px dashed #ff004055; }
+#joy::after { content:'\25C0   \25B6'; position:absolute; left:0; right:0; top:50%; transform:translateY(-50%); text-align:center; color:#ff004066; font-size:9px; letter-spacing:2px; white-space:pre; }
+#joy-knob { position:absolute; left:50%; top:50%; width:42px; height:42px; margin:-21px 0 0 -21px; border-radius:50%; background:radial-gradient(circle at 35% 30%, #ff6a88, #ff0040 60%, #7a0020); box-shadow:0 2px 8px #000, 0 0 10px #ff004088; transition:transform .06s; pointer-events:none; }
+#joy.on #joy-knob { transition:none; }
+#world-pad .pad-r { display:grid; grid-template-columns:repeat(3,auto); gap:5px; max-width:none; justify-content:end; }
+#world-pad .pad-r button { width:48px; height:38px; font-size:8px; padding:0; background:#000b; border-radius:6px; }
+#world-pad .pad-r button.act { width:48px; font-size:8px; }
+@media (max-height:520px) and (orientation:landscape) {
+  #world-pad { bottom:50px; }
+  #joy { width:84px; height:84px; opacity:.85; }
+  #joy-knob { width:36px; height:36px; margin:-18px 0 0 -18px; }
+  #world-pad .pad-r button { width:42px; height:32px; background:#0008; }
+  #world-pad .pad-r { gap:4px; }
+}
+
+@media (max-width:700px){#world-hint{left:0;transform:none;width:100%;max-width:none;box-sizing:border-box;text-align:left}}
