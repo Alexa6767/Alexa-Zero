@@ -147,16 +147,21 @@
       return o;
     }
     if (moving) {
-      o.lean = 0.07; o.hy = -16 - Math.abs(Math.sin(ph)) * 1.2;
-      o.fa = [Math.sin(ph) * 6, -Math.max(0, Math.cos(ph)) * 3.5]; o.fb = [Math.sin(ph + Math.PI) * 6, -Math.max(0, Math.cos(ph + Math.PI)) * 3.5];
-      const sh = sh0(); o.ha = [sh.x + Math.sin(ph + Math.PI) * 5, sh.y + 11]; o.hb = [sh.x + Math.sin(ph) * 5, sh.y + 11]; o.sa = 1; o.sb = 1;
-      o.hair = 0.5; o.skirt = 0.3; return o;
+      const sw = Math.sin(ph), cs = Math.cos(ph);
+      o.lean = 0.06 + Math.abs(p.vx) / 900; o.hy = -16 + Math.cos(ph * 2) * 0.9; o.hx = sw * 0.5; o.hd = -0.03 * Math.cos(ph * 2); o.face = 'n';
+      o.fa = [sw * 9, -Math.max(0, cs) * 4.2]; o.fb = [-sw * 9, -Math.max(0, -cs) * 4.2];
+      const sh = sh0(); o.ha = [sh.x - sw * 7, sh.y + 10.5 - Math.abs(sw) * 0.6 + Math.max(0, -sw) * -1]; o.hb = [sh.x + sw * 7, sh.y + 10.5 - Math.abs(sw) * 0.6 + Math.max(0, sw) * -1]; o.sa = 1; o.sb = 1;
+      o.hair = 0.2; o.skirt = 0.3 + Math.abs(sw) * 0.2; return o;
     }
-    // idle: hands on hips, slow breathing, weight shift, hair sway
+    // idle: weight shift, slow breathing, and a cigarette. Hand low most of the time, a drag every ~10s.
     const br = Math.sin(t * 2.3), shift = Math.sin(t * 0.9) * 0.6;
-    o.hy = -16 + br * 0.5; o.hx = shift * 0.4; o.lean = 0.03 + br * 0.015;
-    o.fa = [5 + shift * 0.3, 0]; o.fb = [-4, 0]; o.face = (hash(Math.floor(t * 0.5)) > 0.8 && Math.sin(t * 3) > 0.4) ? 'smirk' : 'n';
-    const sh = sh0(); o.ha = [o.hx + 5.5, o.hy - 1]; o.hb = [o.hx - 4, o.hy - 1]; o.sa = 1; o.sb = 1; o.hair = 0.02 + br * 0.03; o.skirt = 0.1;
+    const cyc = (t + (p.idlePhase || 0)) % 10, sm = (a, b, x) => { const u = Math.max(0, Math.min(1, (x - a) / (b - a))); return u * u * (3 - 2 * u); };
+    const up = sm(2.6, 3.3, cyc) * (1 - sm(5.6, 6.3, cyc));
+    o.hy = -16 + br * 0.5; o.hx = shift * 0.4; o.lean = 0.03 + br * 0.015 - up * 0.02; o.hd = -0.04 * up + 0.05 * (1 - up);
+    o.fa = [5 + shift * 0.3, 0]; o.fb = [-4, 0]; o.shut = up > 0.6; o.face = (hash(Math.floor(t * 0.5)) > 0.8 && Math.sin(t * 3) > 0.4) ? 'smirk' : 'n';
+    const sh = sh0();
+    o.ha = [sh.x + 6 + up * 1.5, sh.y + 9.5 - up * 16.5]; o.hb = [o.hx - 4, o.hy - 1]; o.sa = 1; o.sb = 1; o.hair = 0.02 + br * 0.03; o.skirt = 0.1;
+    o.smoke = { up, exh: sm(5.6, 6.0, cyc) * (1 - sm(7.5, 8.3, cyc)) };
     return o;
   }
 
@@ -279,6 +284,13 @@
     P(hdx - 2, hdy + 6, 5, 4, H.skinD);
     headDraw(hdx, hdy, o, t);
     const j = armDraw(o.ha, o.sa, false);
+    if (o.smoke && j) {
+      const u = o.smoke.up, cx = j.x + 2, cy = j.y - 1 - u * 1;
+      P(cx, cy, 5, 1, '#efe9de'); P(cx + 5, cy, 1, 1, '#ff7a3a'); P(cx + 4, cy, 1, 1, '#c9c2b4');
+      const mx = u > 0.5 ? cx + 7 : cx + 5, my = cy;
+      for (let k = 0; k < 4; k++) { const r = ((t * 5 + k * 3.2) % 13); P(mx + Math.sin(t * 2.2 + k * 1.7) * 2.2 + r * 0.15, my - 1 - r, 1, 1, 'rgba(205,205,220,' + (0.55 * (1 - r / 13)).toFixed(2) + ')'); }
+      if (o.smoke.exh > 0.01) { const ex = o.smoke.exh; for (let k = 0; k < 7; k++) { const r = (t * 7 + k * 2) % 16; P(hdx + 6 + r * 0.9, hdy + 3 - r * 0.25 + Math.sin(k + t * 3) * 1.5, 2, 1, 'rgba(215,215,228,' + (0.5 * ex * (1 - r / 16)).toFixed(2) + ')'); } }
+    }
     if (o.armed && j) drawBlade(j.x, j.y, o.ang, o.blen);
     return o;
   }
@@ -346,7 +358,7 @@
       ctx.translate(x, 2 * opts.floorY - y); ctx.scale(f, 1); ctx.drawImage(refl, -OX, -OY); ctx.setTransform(ctx.getTransform());
       ctx.restore(); ctx.save(); ctx.imageSmoothingEnabled = false;
     }
-    ctx.translate(x, y); ctx.scale(f, 1);
+    ctx.translate(x, y); ctx.scale(f * 0.88, 0.88);
     if (opts.tint) { silhouette(out, opts.tint); ctx.drawImage(sil, -OX, -OY); }
     else ctx.drawImage(out, -OX, -OY);
     ctx.restore();
