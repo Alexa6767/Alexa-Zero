@@ -2,7 +2,7 @@
 window.heroWord = function (w) { var f = (window.HERO_G === 'f'); var m = { he: f ? 'she' : 'he', his: f ? 'her' : 'his', him: f ? 'her' : 'him' }[w.toLowerCase()]; return w[0] === w[0].toUpperCase() ? m[0].toUpperCase() + m.slice(1) : m; };
 window.V5_READY = (function () {
   var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'extra.css'; document.head.appendChild(l);
-  return ['sprites.js', 'pause.js', 'select.js'].reduce(function (p, src) {
+  return ['sprites.js', 'pause.js', 'select.js', 'atmo.js'].reduce(function (p, src) {
     return p.then(function () { return new Promise(function (res) { var s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = res; document.body.appendChild(s); }); });
   }, Promise.resolve());
 })();
@@ -436,6 +436,7 @@ window.V5_READY = (function () {
     const message = Engine.interpolate(node.message, state);
     const pages = message.split('||').map(p => p.trim()).filter(Boolean);
     state.currentMood = node.mood || 'calm';
+    if (window.Atmo) Atmo.scene(state, node);
     applyEffects(node);
 
     textEl.className = 'therapist-text';
@@ -495,7 +496,7 @@ window.V5_READY = (function () {
       box.style.display = 'none';
       state.currentMood = 'climax';
       Audio2.heartbeatStart();
-      World.run(node.world, { state, onWin: () => { Audio2.heartbeatStop(); box.style.display = 'block'; renderRoom(node.next); syncMusic(); } });
+      World.run(node.world, { state, onWin: () => { Audio2.heartbeatStop(); box.style.display = 'block'; box.classList.remove('crt-on'); void box.offsetWidth; box.classList.add('crt-on'); renderRoom(node.next); syncMusic(); } });
       syncMusic();
       return;
     }
@@ -521,6 +522,7 @@ window.V5_READY = (function () {
     stopTimer();
     setChoicesEnabled(false);
     Audio2.choice(categorize(choice.text));
+    if (window.Atmo) Atmo.pick(categorize(choice.text));
     textEl.textContent = '';
     clearChoices();
     const r = Engine.applyChoice(state, choice);
@@ -563,19 +565,19 @@ window.V5_READY = (function () {
     Horror.music.init(Audio2.getCtx());
     applyMusic();
     window.HERO_G = state.hero || 'm';
-    if (state.name && !state.finished) {
+    const pick = (cont) => { if (state.heroPack) return cont(); CharSelect.show((h) => { state.hero = h; state.heroPack = 1; window.HERO_G = h; persist(); cont(); }, state.hero); };
+    if (state.name && !state.finished) pick(() => {
       // Returning patient: greet, then resume exactly where they left off.
       const resumed = state.room;
       textEl.className = 'therapist-text';
       typeText(`Welcome back, ${state.name}.` + (Horror.welcomeBack(state) ? '\n\n' + Horror.welcomeBack(state) : '') + (Meta.get().visits > 1 ? '\n\nVisit number ' + Meta.get().visits + '.' : ''), { speed: 24 })
         .then(() => new Promise(r => setTimeout(r, 3800)))
         .then(() => renderRoom(resumed));
-    } else if (state.finished) {
+    }); else if (state.finished) {
       showEndScreen();
     } else {
       const go = () => { World.enter({ state, onDoor: () => renderRoom('S1_START'), intro: 'Session 01. The door is open.' }); syncMusic(); };
-      if (state.hero) go();
-      else CharSelect.show((h) => { state.hero = h; window.HERO_G = h; persist(); go(); });
+      pick(go);
     }
   }
 })();
