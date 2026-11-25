@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alexa-Zero</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="start-screen">
+    <p>[ INITIALIZE THERAPY SESSION ]<span class="warn">Warning: flashing lights, sudden sounds, themes of depression and self-harm. Headphones recommended.</span></p>
+</div>
+
+<div id="bg-noise"></div>
+<div id="scanlines"></div>
+
+<div id="timer-bar">
+    <div id="timer-fill"></div>
+</div>
+
+<button id="music-btn">MUSIC: OFF</button>
+
+<button id="reset-btn">RESET AI</button>
+
+<!-- END SESSION SCREEN -->
+<div id="end-session-screen">
+    <div id="bg-noise"></div>
+    <div id="scanlines"></div>
+    <div id="end-session-content">
+        <div id="end-session-title">SESSION COMPLETE</div>
+        <div id="end-session-notes"></div>
+    </div>
+</div>
+
+<div id="box">
+    <div id="text-container">
+        <span id="text"></span><span id="cursor"></span>
+    </div>
+    <input type="text" id="name-input" placeholder="ENTER YOUR NAME">
+    <div id="choices" class="choice-container"></div>
+</div>
+
+<script src="script.js"></script>
+<script src="story.js"></script>
+<script src="horror.js"></script>
+<script src="world.js"></script>
+<script src="app.js"></script>
+
+</body>
+</html>
