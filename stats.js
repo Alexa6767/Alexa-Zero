@@ -30,7 +30,7 @@
     var s = document.getElementById('start-screen');
     if (!s || document.getElementById('stats-note')) return;
     var n = document.createElement('div'); n.id = 'stats-note';
-    n.textContent = 'Your choices are recorded anonymously (no name, account or IP).';
+    n.textContent = 'Your choices and character name are recorded anonymously (no account or IP).';
     s.appendChild(n);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', note); else note();
