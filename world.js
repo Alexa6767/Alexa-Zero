@@ -31,31 +31,31 @@
   ui.id = 'world-ui';
   ui.innerHTML =
     '<div id="world-hint"></div><div id="world-msg"></div><div id="world-frags"></div><div id="world-hp"></div>' +
-    '<div id="world-pad"><div class="pad-l"><button data-k="left">&#9664;</button><button data-k="right">&#9654;</button></div>' +
-    '<div class="pad-r"><button data-k="run">RUN</button><button data-k="jump">JUMP</button><button data-k="slash">SLASH</button><button data-k="stab">STAB</button><button data-k="kick">KICK</button><button data-k="slide">SLIDE</button><button data-k="act" class="act">ACT</button></div></div>';
+    '<div id="world-pad"><div class="pad-l"><div id="joy"><div id="joy-knob"></div></div></div>' +
+    '<div class="pad-r"><button data-k="run">RUN</button><button data-k="jump">JUMP</button><button data-k="slash">SLASH</button><button data-k="stab">STAB</button><button data-k="slide">SLIDE</button><button data-k="act" class="act">ACT</button></div></div>';
   document.body.appendChild(ui);
   const hintEl = ui.querySelector('#world-hint'), msgEl = ui.querySelector('#world-msg'),
         fragEl = ui.querySelector('#world-frags'), hpEl = ui.querySelector('#world-hp');
 
   let W = null;
   let msgTimer = null;
-  const keys = { left: false, right: false, run: false, jump: false, slash: false, stab: false, kick: false, slide: false };
-  const pressed = { jump: false, slash: false, stab: false, kick: false, slide: false, act: false };
+  const keys = { left: false, right: false, run: false, jump: false, slash: false, stab: false, slide: false };
+  const pressed = { jump: false, slash: false, stab: false, slide: false, act: false };
   const CODEMAP = {
     ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', ShiftLeft: 'run', ShiftRight: 'run',
-    ArrowUp: 'jump', KeyW: 'jump', Space: 'jump', KeyJ: 'slash', KeyX: 'slash', KeyZ: 'slash', KeyK: 'stab', KeyL: 'kick', KeyS: 'slide', ArrowDown: 'slide', KeyC: 'slide',
+    ArrowUp: 'jump', KeyW: 'jump', Space: 'jump', KeyJ: 'slash', KeyX: 'slash', KeyZ: 'slash', KeyK: 'stab', KeyS: 'slide', ArrowDown: 'slide', KeyC: 'slide',
     KeyE: 'act', Enter: 'act', NumpadEnter: 'act', KeyF: 'act'
   };
   const keyOf = (e) => CODEMAP[e.code] || KEYMAP[String(e.key || '').toLowerCase()] || ({ 'ش': 'left', 'ي': 'right', 'ض': 'jump', 'ث': 'act', 'ق': 'jump', 'ا': 'left', 'ل': 'right' })[e.key] || null;
   const KEYMAP = {
     arrowleft: 'left', a: 'left', arrowright: 'right', d: 'right', shift: 'run',
     arrowup: 'jump', w: 'jump', ' ': 'jump',
-    j: 'slash', x: 'slash', z: 'slash', k: 'stab', l: 'kick', s: 'slide', c: 'slide', arrowdown: 'slide',
+    j: 'slash', x: 'slash', z: 'slash', k: 'stab', s: 'slide', c: 'slide', arrowdown: 'slide',
     e: 'act', enter: 'act'
   };
   function setKey(k, v) {
     if (k === 'act') { if (v) pressed.act = true; return; }
-    if ((k === 'jump' || k === 'slash' || k === 'stab' || k === 'kick' || k === 'slide') && v && !keys[k]) pressed[k] = true;
+    if ((k === 'jump' || k === 'slash' || k === 'stab' || k === 'slide') && v && !keys[k]) pressed[k] = true;
     keys[k] = v;
   }
   window.addEventListener('keydown', (e) => {
@@ -82,6 +82,22 @@
     b.addEventListener('pointerdown', down); b.addEventListener('pointerup', up);
     b.addEventListener('pointerleave', up); b.addEventListener('pointercancel', up);
   });
+
+  const joy = ui.querySelector('#joy'), knob = ui.querySelector('#joy-knob');
+  if (joy) {
+    let pid = null;
+    const mv = (e) => {
+      const r = joy.getBoundingClientRect(), R = r.width / 2, cx = r.left + R, cy = r.top + R;
+      let dx = e.clientX - cx, dy = e.clientY - cy; const d = Math.hypot(dx, dy), m = R * 0.62;
+      if (d > m) { dx = dx / d * m; dy = dy / d * m; }
+      knob.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+      keys.left = dx < -m * 0.28; keys.right = dx > m * 0.28;
+    };
+    const end = () => { pid = null; knob.style.transform = ''; keys.left = keys.right = false; joy.classList.remove('on'); };
+    joy.addEventListener('pointerdown', (e) => { e.preventDefault(); pid = e.pointerId; try { joy.setPointerCapture(pid); } catch (_) {} joy.classList.add('on'); mv(e); });
+    joy.addEventListener('pointermove', (e) => { if (e.pointerId === pid) { e.preventDefault(); mv(e); } });
+    joy.addEventListener('pointerup', end); joy.addEventListener('pointercancel', end); joy.addEventListener('lostpointercapture', end);
+  }
 
   /* ---------- content ---------- */
   function wallLines(name) {
@@ -353,6 +369,7 @@
     p.x = Math.max(24, Math.min(W.width - 30, p.x));
     if (dashing) p.vy = 0; else p.vy += GRAV * dt;
     p.y += p.vy * dt;
+    const wasAir = !p.ground, pvy = p.vy;
     p.ground = false;
     if (p.y >= GY) { p.y = GY; p.vy = 0; p.ground = true; }
     (W.solids || []).forEach(s => {
@@ -380,20 +397,23 @@
       }
     }
     pressed.slide = false;
+    if (p.ground && wasAir && pvy > 170) p.landT = 0.13;
+    if (p.landT > 0) p.landT -= dt;
     // attacks: slash combo (air: downward slash), stab, backward kick
-    const want = pressed.slash ? 'slash' : pressed.stab ? 'stab' : pressed.kick ? 'kick' : null;
+    const want = pressed.slash ? 'slash' : pressed.stab ? 'stab' : null;
     if (canAct && want && p.slashCd <= 0 && !(p.slideT > 0) && !dashing) {
       let ty;
       if (want === 'slash') ty = !p.ground ? 'down' : p.comboT > 0 ? (p.combo === 1 ? 's2' : p.combo === 2 ? 's3' : 's1') : 's1';
-      else ty = want;
+      else ty = (want === 'stab' && !p.ground) ? 'dstab' : want;
       const d = A[ty];
       p.atk = Object.assign({ type: ty }, d); p.slash = d.dur; p.hitDone = false; p.slashCd = ty === 's3' ? d.dur + 0.08 : d.dur * 0.66;
-      p.combo = ty === 's1' ? 1 : ty === 's2' ? 2 : 0; p.comboT = ty === 's3' || ty === 'down' || ty === 'stab' || ty === 'kick' ? 0 : d.dur + 0.3;
-      p.vx += p.face * (ty === 's3' ? 90 : ty === 'stab' ? 120 : ty === 'kick' ? 0 : 55);
+      p.combo = ty === 's1' ? 1 : ty === 's2' ? 2 : 0; p.comboT = ty === 's3' || ty === 'down' || ty === 'stab' ? 0 : d.dur + 0.3;
+      p.vx += p.face * (ty === 's3' ? 90 : ty === 'stab' ? 120 : ty === 'dstab' ? 30 : 55);
+      if (ty === 'dstab') { p.vy = Math.max(p.vy, 230); p.vx *= 0.4; }
       if (ty === 'down') { p.vy = Math.max(p.vy, 110); p.vx += p.face * 40; }
       Audio2().glitch && Audio2().glitch();
     }
-    pressed.slash = false; pressed.stab = false; pressed.kick = false;
+    pressed.slash = false; pressed.stab = false;
     if (p.slash > 0) { p.slash -= dt; if (p.slash <= 0) p.atk = null; }
     if (p.slashCd > 0) p.slashCd -= dt;
     if (p.comboT > 0) p.comboT -= dt;
@@ -405,7 +425,7 @@
     if (moving) p.ph += dt * (p.run ? 15 : 9.5) * Math.min(1.7, (Math.abs(p.vx) / (p.run ? RUN : WALK) * 0.4 + 0.6));
     if (moving && p.run) { p.dust -= dt; if (p.dust <= 0) { p.dust = 0.07; dust(p.x - p.face * 3, p.y, p.face); } }
     if (p.slideT > 0 && Math.random() < 0.8) dust(p.x - p.face * 6, p.y, p.face);
-    p.hist.push({ x: p.x, y: p.y, t: W.t, face: p.face, ph: p.ph, vx: p.vx, vy: p.vy, ground: p.ground, sl: p.slideT > 0, ds: !!dashing, run: p.run, stage: p.stage }); if (p.hist.length > 14) p.hist.shift();
+    p.hist.push({ x: p.x, y: p.y, t: W.t, face: p.face, ph: p.ph, vx: p.vx, vy: p.vy, ground: p.ground, sl: p.slideT > 0, ds: !!dashing, run: p.run, stage: p.stage, landT: p.landT }); if (p.hist.length > 14) p.hist.shift();
     // hitbox active window
     p.slashActive = !!(p.atk && p.slash > 0 && (1 - p.slash / p.atk.dur) >= p.atk.lo && (1 - p.slash / p.atk.dur) <= p.atk.hi);
     p.vic = (W.scene === 'chase' && W.done) || (W.scene === 'arena' && W.boss && W.boss.dead && W.boss.deathT > 0.7);
@@ -414,7 +434,7 @@
   function slashBox() {
     const p = W.p, a = p.atk || { type: 's1', reach: 38 }, f = p.face, ty = a.type;
     let ry1 = -44, ry2 = 2, a1, a2;
-    if (ty === 'kick') { a1 = p.x - f * 2; a2 = p.x - f * a.reach; ry1 = -30; ry2 = 2; }
+    if (ty === 'dstab') { a1 = p.x - f * 8; a2 = p.x + f * 14; ry1 = -10; ry2 = 28; }
     else { a1 = p.x - f * 4; a2 = p.x + f * a.reach; if (ty === 's3') { ry1 = -52; ry2 = 4; } else if (ty === 'down') { ry1 = -30; ry2 = 16; } else if (ty === 'stab') { ry1 = -34; ry2 = -12; } else if (ty === 'dash') { ry1 = -38; ry2 = 0; } }
     return { x1: Math.min(a1, a2), x2: Math.max(a1, a2), y1: p.y + ry1, y2: p.y + ry2 };
   }
@@ -800,7 +820,7 @@
     if (pressed.act) { pressed.act = false; if (n) n.fn(); }
     let hint = '';
     if (n) hint = '[E / ACT] ' + n.label;
-    else if (W.t < 9 && W.scene === 'hall') hint = 'A / D walk. Shift run (3 stages). W jump. J slash combo. K stab. L kick. S slide. Esc pause.';
+    else if (W.t < 9 && W.scene === 'hall') hint = 'A / D walk. Shift run (3 stages). W jump. J slash combo. K stab.  S slide. Esc pause.';
     else if (W.scene === 'arena' && W.t < 8) hint = 'Jump the shots. Slash falling orbs. Slash him when he drops.';
     hintEl.textContent = hint;
     draw();
