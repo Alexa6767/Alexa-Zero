@@ -326,7 +326,7 @@
     ] });
 
   /* --- bad ending: run and delete --- */
-  Q('S10_DEL_A', "Then it starts here.||The Sweeper is awake. It erases what it touches.||Reach the server. Press delete. Don't stop.", 'S10_DEL_GO', [
+  Q('S10_DEL_A', "Then it starts here.||The Sweeper is awake.||You wrote it into the rulebook, Alan. It erases what she feels.||Reach the server. Press delete. Don't stop.", 'S10_DEL_GO', [
     ["I'm ready.", "Run."],
     ["Wait. Is there another way?", "Yes. The other door.||But you're here. So: run.", { then: 'S10_DEL_GO' }]
   ], { mood: 'climax', fx: ['violent_shake'] });
