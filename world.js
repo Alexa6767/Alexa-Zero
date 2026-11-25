@@ -102,7 +102,7 @@
   /* ---------- content ---------- */
   function wallLines(name) {
     const n = String(name || 'you').toUpperCase();
-    return [
+    const raw = [
       { x: 160,  min: 1, t: 'WALK. SIT. TALK.' },
       { x: 700,  min: 2, t: 'SHE REMEMBERS WHAT YOU SAY' },
       { x: 1180, min: 3, t: n + ' ' + n + ' ' + n },
@@ -115,6 +115,13 @@
       { x: 3560, min: 10, t: 'ONE MORE DOOR' },
       { x: 4400, min: 9, t: 'HEAVY. HEAVY. HEAVY.' }
     ];
+    const doors = []; for (let q = 1; q <= 10; q++) doors.push(DOOR_X(q)); doors.push(ROOM_DOORS.waiting, ROOM_DOORS.archive, ROOM_DOORS.workshop);
+    const clear = (x, wd) => doors.every(d => x + wd < d - 34 || x > d + 34) && (x + wd < 70 || x > 110);
+    return raw.map(l => {
+      const wd = l.t.length * 5 + 4; let best = l.x;
+      for (let s = 0; s <= 600 && !clear(best, wd); s += 2) { if (clear(l.x + s, wd)) { best = l.x + s; break; } if (clear(l.x - s, wd)) { best = l.x - s; break; } }
+      return Object.assign({}, l, { x: best });
+    });
   }
   function terminalText(st) {
     const m = st.memory || {};
@@ -354,7 +361,14 @@
     const dir = canAct ? (keys.right ? 1 : 0) - (keys.left ? 1 : 0) : 0;
     const dashing = p.atk && p.atk.type === 'dash' && p.slash > 0;
     p.run = keys.run && dir !== 0;
-    if (p.run && (p.runDir === dir)) p.runT = (p.runT || 0) + dt; else if (!(p.slideT > 0)) p.runT = 0;
+    let grace = false;
+    if (p.run) {
+      if (p.lastDir && dir === -p.lastDir) p.vx = dir * Math.abs(p.vx); // instant turn, keep the speed
+      p.runT = (p.runT || 0) + dt; p.lastDir = dir; p.gr = null;
+    } else if (!(p.slideT > 0)) {
+      if (keys.run && dir === 0 && p.runT > 0 && ((p.gr = (p.gr == null ? 0.15 : p.gr) - dt) > 0)) grace = true;
+      else { p.runT = 0; p.lastDir = 0; }
+    }
     p.runDir = dir;
     p.stage = !p.run ? 0 : p.runT < 1 ? 1 : p.runT < 2.2 ? 2 : 3;
     const sp = p.run ? [0, RUN, 205, 275][p.stage] : WALK;
@@ -362,7 +376,7 @@
     const tvx = dir * sp * (hitting ? 0.35 : 1);
     if (p.slideT > 0) { p.slideT -= dt; p.vx = p.face * (110 + 170 * Math.max(0, p.slideT / 0.5)); }
     else if (dashing) p.vx = p.face * 300;
-    else p.vx += (tvx - p.vx) * Math.min(1, dt * (p.ground ? 14 : 6));
+    else if (!grace) p.vx += (tvx - p.vx) * Math.min(1, dt * (p.ground ? 14 : 6));
     if (dir && !(p.slideT > 0) && !dashing) p.face = dir;
     const prevY = p.y;
     p.x += p.vx * dt;
