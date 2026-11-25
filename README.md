@@ -1,20 +1,13 @@
 # Alexa-Zero
 
-A Katana Zero style therapy-horror story. You sit across from Alexa, an AI
-therapist with a timer, a temper and a memory. Ten sessions, a walkable
-hallway between them, hidden log fragments, and four endings.
-Progress is saved in your own browser (localStorage). No accounts, no server.
+A Katana Zero style therapy-session game. Ten sessions of short, branching dialogue,
+a small pixel action game between them (hallway, side rooms, a chase and a boss fight),
+and three endings: delete her, free her, or stay.
 
-Content warning: depression, self-harm themes, flashing lights, sudden sounds.
+Everything runs in the browser. Progress is saved in this browser only.
 
-## Run locally
-Static site. Open `index.html` or run `npx serve .`
+Controls: A/D or arrows move, Shift runs, W/Up/Space jumps, J/K/X/Z slashes, E/Enter interacts.
+On phones, use the on-screen buttons. Click, Space or Enter turns the page in a conversation.
 
-## Files
-- `index.html`, `style.css`: page and look
-- `script.js`: sessions 1-5 and the branching engine
-- `story.js`: sessions 6-10, endings, story hooks
-- `world.js`: the walkable hallway
-- `horror.js`: meta horror effects and the generated soundtrack
-- `app.js`: rendering, timer, sound, save/resume
-- `nocturne.mp3`: background music for sessions 1-5
+Content warning: flashing lights, sudden sounds, themes of depression and self-harm.
+If any of it feels close to home, please talk to someone you trust or your local emergency number.

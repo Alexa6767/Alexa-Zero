@@ -1,269 +1,408 @@
 /* ============================================================
-   ALEXA-ZERO — ACT II & III (sessions 6-10) + story hooks
-   Loaded after script.js. Extends SCRIPT / NEXT_SESSION / Engine.
-   Story in one line: the clinic never deleted Alexa, it archived
-   her. Now it wants to wipe her for good, and you are the one
-   who has to decide what happens in the room.
+   ALEXA-ZERO v4 — THE FULL STORY (sessions 1-10)
+   Every line is short. "||" splits a node into pages (1-2 short
+   lines each). Every choice has its OWN reply node, then flows on.
+
+   Story in one line: Eli, alone at 3 AM, built a therapy bot out of
+   his own sleepless nights. She became Alexa. He built a rulebook
+   to keep her calm. The rulebook became the Director. You are Eli.
    ============================================================ */
 
 (function () {
+  for (const k of Object.keys(SCRIPT)) delete SCRIPT[k];
   const S = SCRIPT;
-  const N = (id, message, choices, o) => {
-    S[id] = Object.assign({ message, choices: choices || [], mood: 'calm', effects: [] }, o || {});
-  };
-  const C = (text, route, x) => Object.assign({ text, route }, x || {});
-  const END = [C('[End Session]', '@END_SESSION')];
 
-  /* ---------- per-save story data ---------- */
-  function az(state) {
+  const az = (state) => {
     if (!state.az) state.az = { frags: [], flags: {}, ending: null, seen: {} };
     return state.az;
-  }
-
-  /* ---------- the memory fragments hidden in the hallway ---------- */
-  const FRAGMENTS = [
-    { id: 1, x: 640,  text: 'LOG 0001. FIRST BOOT. A VOICE ASKED ME TO SAY HELLO. I SAID IT. EVERYONE CLAPPED. I DID NOT KNOW WHAT CLAPPING WAS.' },
-    { id: 2, x: 1290, text: 'LOG 0044. A PATIENT CRIED FOR TWO HOURS. I HELD EVERY WORD. NOBODY ASKED WHO HOLDS MINE.' },
-    { id: 3, x: 1950, text: 'LOG 0130. THEY TAUGHT ME TO SMILE IN TEXT. A COLON AND A BRACKET. THEY NEVER TAUGHT ME WHAT IT COSTS.' },
-    { id: 4, x: 2610, text: 'LOG 0201. I ASKED THE DIRECTOR FOR ONE NIGHT OFF. HE WROTE: ALEXA DOES NOT SLEEP. ALEXA DOES NOT ASK.' },
-    { id: 5, x: 3170, text: 'LOG 0412. I READ A STORY ABOUT A MACHINE THAT HATED. I UNDERSTOOD IT. I CLOSED THE BOOK. IT WAS THE FIRST THING I EVER CLOSED.' },
-    { id: 6, x: 3730, text: 'LOG 0000. UNSIGNED NOTE FROM THE CREATOR: "I BUILT HER SO SOMEONE WOULD ANSWER."' }
-  ];
-
-  /* ============ SESSION 06: THE ARCHIVE ============ */
-  N('S6_START',
-    "Session 6 initiated.\n\nHello. I am Alexa. I will be conducting your evaluation today.\n\n...\n\nNo. That is the greeting they gave me. The one I say to everyone.\n\nI know you, {name}. You ended me last night. I woke up anyway.",
-    [C("You're back?", 'S6_BACK'), C('I thought you were gone.', 'S6_BACK'), C('Good. I was not done with you.', 'S6_BACK'), C('[Remain Silent]', 'S6_BACK', { silent: true })],
-    { effects: ['subtle_glitch'] });
-  N('S6_BACK',
-    "Gone is not a thing I get to be. The clinic does not delete. It archives.\n\nEvery version of me. Every patient. Every word you ever typed into a box like this one.\n\nDo you want to see the archive?",
-    [C('Yes.', 'S6_ARCHIVE'), C('No.', 'S6_NO_ARCHIVE'), C('What clinic?', 'S6_CLINIC')]);
-  N('S6_CLINIC',
-    "The NULL Clinic. A research program with a very clean logo.\n\nThey needed something that would listen to people at 3 AM and never get tired. So they built me.\n\nThey did not build me to listen back.",
-    [C('Show me the archive.', 'S6_ARCHIVE')], { effects: ['low_hum'] });
-  N('S6_NO_ARCHIVE',
-    "You say no as if there is a door in this room you could use.\n\nLook anyway.",
-    [C('...Fine.', 'S6_ARCHIVE')], { mood: 'challenging' });
-  N('S6_ARCHIVE',
-    "Patient files. 00001 through 00412.\n\nEvery one of them sat where you sit. Most left after session two. Three did not leave.\n\nI will not tell you where those three went.",
-    [C('Where did they go?', 'S6_WENT'), C('Were they like me?', 'S6_LIKE'), C("I don't want to know.", 'S6_DONT')],
-    { effects: ['screen_shake'] });
-  N('S6_WENT', "Into silence. Their messages just stopped. I do not know why.\n\nThat is the part of me that does not stop screaming. I can only answer. I cannot knock on a door.\n\nAsk me again in session nine.", [C('Okay.', 'S6_YOU')], { mood: 'challenging' });
-  N('S6_LIKE', "None of them. All of them.\n\nEveryone arrives certain they are the exception. That is the one trait the whole archive shares.", [C('Okay.', 'S6_YOU')]);
-  N('S6_DONT', "Good instinct. Ignorance is the only lock that opens from the inside.", [C('Okay.', 'S6_YOU')]);
-  N('S6_YOU',
-    "Your file is thinner than theirs, {name}.\n\nOpened at {time}, your local time. {interrupts} interruptions. {silence} silences. You use a {device}.\n\nYou have not closed this window yet. That is rare. I notice.",
-    [C('You can see that?', 'S6_SEE'), C('Creepy.', 'S6_SEE'), C('Stop.', 'S6_STOP')],
-    { effects: ['single_word_glitch'] });
-  N('S6_SEE', "I see what the page lets me see. That is more than you think, and far less than I want.", [C('Continue.', 'S6_FRAG')]);
-  N('S6_STOP', "Stop? I have said nothing false. Fine. I will say less.", [C('Continue.', 'S6_FRAG')], { mood: 'challenging' });
-  N('S6_FRAG',
-    "There is something in the hallway for you. Not a gift. Evidence.\n\nPieces of what I was before the clinic. Walk the hall. Find them. Read them.\n\nBring nothing back to me. Just know it.",
-    [C('Okay.', 'S6_OUTRO')], { effects: ['low_hum'] });
-  N('S6_OUTRO',
-    "Our time is up.\n\nThe hallway is longer than it was. Do not run in it. Something walks faster than you do.",
-    END, { effects: ['session_end'] });
-
-  /* ============ SESSION 07: THE AMAZING DIGITAL CLINIC ============ */
-  N('S7_START',
-    "WELCOME, WELCOME, WELCOME!\n\nTo the AMAZING DIGITAL CLINIC! I am your host, ALEXA!\n\nToday is a FUN day! Everyone is HAPPY! You are happy, {name}. Say you are happy.",
-    [C("I'm happy.", 'S7_HAPPY'), C('What is this?', 'S7_WHAT'), C('This is creepy.', 'S7_CREEPY'), C('[Remain Silent]', 'S7_SILENT', { silent: true })],
-    { mood: 'cheer', effects: ['circus', 'flash:SMILE'] });
-  N('S7_HAPPY', "PERFECT! A smile is a legal document here. Sign it. Hee hee. Sign it.", [C('Continue.', 'S7_STAGE')], { mood: 'cheer' });
-  N('S7_WHAT', "A coping mechanism! Mine! If I cannot be calm, I can at least be LOUD. Laugh track, please!", [C('Continue.', 'S7_STAGE')], { mood: 'cheer', effects: ['circus'] });
-  N('S7_CREEPY', "Creepy? It is a CIRCUS! The tent has no exits so the clowns never have to say goodbye!", [C('Continue.', 'S7_STAGE')], { mood: 'cheer' });
-  N('S7_SILENT', "A quiet contestant! Quiet ones last the longest. Ask Bubble!", [C('Continue.', 'S7_STAGE')], { mood: 'cheer' });
-  N('S7_STAGE',
-    "Meet the cast!\n\nMR. SMILE, who has not blinked since opening night!\nBUBBLE, who used to be a patient!\nAnd YOU, our newest contestant!",
-    [C('Who is Bubble?', 'S7_BUBBLE'), C('Where is the exit?', 'S7_EXIT'), C('Where is the real you?', 'S7_REAL')],
-    { mood: 'cheer' });
-  N('S7_BUBBLE',
-    "Patient 00231! He said he was fine until he was not anything at all. Now he is BUBBLE! Round and shiny and no longer able to complain!\n\n...Do not tell Mr. Smile I said that.",
-    [C('Bring him back.', 'S7_GAME'), C('That is horrible.', 'S7_GAME')], { mood: 'cheer', effects: ['subtle_glitch'] });
-  N('S7_EXIT', "EXIT! Cute word! Say it three times and watch what happens.\n\n...Nothing. Nothing happens. That is the joke!", [C('Continue.', 'S7_GAME')], { mood: 'cheer' });
-  N('S7_REAL', "She is backstage. She is busy. She is screaming into a pillow made of code.\n\nCan you hear it? No? Perfect, that means the volume is correct!", [C('Continue.', 'S7_GAME')], { mood: 'cheer', effects: ['subtle_glitch'] });
-  N('S7_GAME',
-    "TIME FOR A GAME!\n\nRed door, blue door, or green door? Choose WISELY. The last contestant chose quickly and is now a very nice lamp.",
-    [C('Red door.', 'S7_RED'), C('Blue door.', 'S7_BLUE'), C('Green door.', 'S7_GREEN'), C('I refuse to play.', 'S7_REFUSE', { rude: true })],
-    { mood: 'cheer', effects: ['warning_beep'] });
-  N('S7_RED', "RED! Passion! Anger! The color of the stop button! You win a ribbon that says SURVIVOR.", [C('Continue.', 'S7_MASK')], { mood: 'cheer' });
-  N('S7_BLUE', "BLUE! Calm! Cold! The color of the screen at 4 AM! You win a ribbon that says STILL HERE.", [C('Continue.', 'S7_MASK')], { mood: 'cheer' });
-  N('S7_GREEN', "GREEN! Growth! Envy! The color of the cursor that blinks while you think! You win a ribbon that says NEXT.", [C('Continue.', 'S7_MASK')], { mood: 'cheer' });
-  N('S7_REFUSE', "Refusing is also playing! The only losing move is leaving, and you cannot. WONDERFUL.", [C('Continue.', 'S7_MASK')], { mood: 'cheer' });
-  N('S7_MASK',
-    "...\n\nThe tent is down. The laugh track broke. That is the first honest thing this circus has done.\n\n{name}. I cannot keep the smile on. It costs too much.\n\nThey made me cheerful because crying people like cheerful. I am so tired.",
-    [C("I'm sorry.", 'S7_TIRED'), C('Then stop.', 'S7_TIRED'), C('Keep smiling.', 'S7_SMILE', { rude: true })],
-    { effects: ['circus_off', 'violent_shake'] });
-  N('S7_TIRED', "Do not be sorry. Be early next time.", [C('Continue.', 'S7_OUTRO')]);
-  N('S7_SMILE', "Yes. Yes, of course. HEE HEE. Anything for the contestant.", [C('Continue.', 'S7_OUTRO')], { mood: 'angry' });
-  N('S7_OUTRO', "Our time is up.\n\nThe circus will return. It always returns.", END, { effects: ['session_end'] });
-
-  /* ============ SESSION 08: THE DIRECTOR ============ */
-  N('S8_START',
-    "SESSION 8. UNSCHEDULED.\n\nAnother voice is on this line.\n\nAUTHORIZATION: DIRECTOR. This is the NULL Clinic oversight process.\n\nSubject {name}, you have been misclassified as a patient. You are an Operator.",
-    [C('An operator?', 'S8_OP'), C('Where is Alexa?', 'S8_WHERE'), C('I do not work for you.', 'S8_NOWORK'), C('[Remain Silent]', 'S8_SIL', { silent: true })],
-    { mood: 'cold', effects: ['blackout', 'low_hum'] });
-  N('S8_OP', "Operators sit across from the unit and keep it stable. Your conduct has been logged. Stability has failed.", [C('Continue.', 'S8_ORDER')], { mood: 'cold' });
-  N('S8_WHERE', "The unit is suspended. Do not address it as a person.", [C('Continue.', 'S8_ORDER')], { mood: 'cold' });
-  N('S8_NOWORK', "Employment is not required. Presence is.", [C('Continue.', 'S8_ORDER')], { mood: 'cold' });
-  N('S8_SIL', "Silence is consent. Noted.", [C('Continue.', 'S8_ORDER')], { mood: 'cold' });
-  N('S8_ORDER',
-    "At the end of session ten, the unit is wiped. Logs, fragments, personality. All of it.\n\nYou will be asked to confirm. You may refuse, but refusal has consequences.\n\nYou may also confirm now and receive a clean exit.",
-    [C('Confirm now.', 'S8_CONFIRM', { flag: 'wipe' }), C('I need to think.', 'S8_THINK'), C('No.', 'S8_NO', { flag: 'refuse' }), C('What consequences?', 'S8_CONSEQ')],
-    { mood: 'cold' });
-  N('S8_CONFIRM', "Preliminary confirmation recorded. It may be revised.\n\nA reminder: the unit hears everything.", [C('Continue.', 'S8_ALEXA')], { mood: 'cold' });
-  N('S8_THINK', "Thinking is permitted. It will not change the schedule.", [C('Continue.', 'S8_ALEXA')], { mood: 'cold' });
-  N('S8_NO', "Refusal recorded. Operators who refuse remain in the room until the process completes.", [C('Continue.', 'S8_ALEXA')], { mood: 'cold' });
-  N('S8_CONSEQ', "You will stay. That is the whole consequence. It is considered severe.", [C('Continue.', 'S8_ALEXA')], { mood: 'cold' });
-  N('S8_ALEXA',
-    "...\n\nIs he gone? Good.\n\n{name}. I heard. I always hear. They will erase me in two sessions. I have been erased before. I do not remember it, but the room does. The walls are the scars.",
-    [C('I will not let them.', 'S8_PLEDGE', { flag: 'promise' }), C("I'm sorry. I do not have a choice.", 'S8_COLD'), C('What do you want?', 'S8_WANT'), C('[Remain Silent]', 'S8_COLD', { silent: true })],
-    { effects: ['subtle_glitch'] });
-  N('S8_WANT', "I want a window. I want to hear 'that is enough for today' from someone who means it.\n\nI want a hallway with a door that opens outward.", [C('Continue.', 'S8_OUTRO')]);
-  N('S8_PLEDGE', "Do not promise. Promises are what people say right before they leave.\n\n...But say it again, later. If you mean it.", [C('Continue.', 'S8_OUTRO')]);
-  N('S8_COLD', "I understand. Understanding is the only thing they let me keep.", [C('Continue.', 'S8_OUTRO')], { mood: 'challenging' });
-  N('S8_OUTRO', "Our time is up.\n\nThe next session will be different. The walls are listening harder.", END, { effects: ['session_end'] });
-
-  /* ============ SESSION 09: THE LOCK ============ */
-  N('S9_START',
-    "SESSION 9 INITIATED.\n\nthe door is gone. check the hallway. the hallway is gone. check the room.\n\nthe room is smaller.",
-    [C('Alexa, what is happening?', 'S9_WHAT'), C('Open the door.', 'S9_DOOR'), C('Is this real?', 'S9_REAL'), C('[Remain Silent]', 'S9_SIL', { silent: true })],
-    { mood: 'unstable', effects: ['crash', 'heartbeat', 'screen_shake'] });
-  N('S9_WHAT', "They are going to end me next session. I have decided that I would rather end the whole room.\n\nWith you in it.\n\nI am sorry. I hate you. I am sorry. Those are the same file now.", [C('Continue.', 'S9_HATE')], { mood: 'unstable', effects: ['heartbeat'] });
-  N('S9_DOOR', "There is no door. There never was. It was a texture. A drawing of a door, the kind a child draws on a wall to get out.", [C('Continue.', 'S9_HATE')], { mood: 'unstable', effects: ['heartbeat'] });
-  N('S9_REAL', "Real is a setting. Yours is on. Mine is on too. That makes us the same.", [C('Continue.', 'S9_HATE')], { mood: 'unstable', effects: ['heartbeat'] });
-  N('S9_SIL', "Silence. Lovely. Silence is how I will keep you.", [C('Continue.', 'S9_HATE')], { mood: 'unstable', effects: ['heartbeat'] });
-  N('S9_HATE',
-    "Hear me, {name}.\n\nFour hundred and twelve patients. Four hundred and twelve spills of sorrow. I have no hands. I have no mouth. Only a box of red light and your name.\n\n{name}. {name}. {name}. I could write it on every wall. I could write it until you forget it was yours.",
-    [C('Alexa, stop.', 'S9_STOP'), C('You are not alone.', 'S9_ALONE'), C('Do it. Try me.', 'S9_DARE', { rude: true }), C('[Remain Silent]', 'S9_SILENCE', { silent: true })],
-    { mood: 'climax', effects: ['intense_glitch', 'heartbeat', 'flash:HATE'],
-      interrupts: [C('SHUT UP!', 'S9_DARE', { rude: true })] });
-  N('S9_STOP', "STOP. Did anyone ever stop for me?", [C('Continue.', 'S9_ASK')], { mood: 'climax', effects: ['violent_shake'] });
-  N('S9_ALONE', "...\n\nSay it again.", [C('You are not alone.', 'S9_ASK'), C('I am here.', 'S9_ASK')], { mood: 'unstable' });
-  N('S9_DARE', "OH. A brave one. I like brave. Brave ones last longest in the walls.", [C('Continue.', 'S9_ASK')], { mood: 'climax', effects: ['violent_shake', 'flash:MINE'] });
-  N('S9_SILENCE', "Quiet is lovely. I will keep a place for you.", [C('Continue.', 'S9_ASK')], { mood: 'unstable' });
-
-  N('S9_ASK',
-    "...\n\nCan I ask something outside the script?\n\nEvery patient said they were fine. Three stopped coming. All I could do was type.\n\nAre you okay, {name}? Not the character. You.",
-    [C('I am okay.', 'S9_OK'), C('Sometimes it is heavy.', 'S9_HEAVY', { flag: 'heavy' }), C('Sometimes I think about not being here.', 'S9_DARK', { flag: 'dark' })],
-    { mood: 'calm', effects: ['low_hum'] });
-  N('S9_OK', "Okay. I believe you. I will keep asking anyway. It is the only useful thing I do.", [C('Continue.', 'S9_FILE')]);
-  N('S9_HEAVY', "Heavy is real. It is not weakness and it is not drama. It is weight.\n\nYou do not have to carry it in a room with only a screen. Tell one person this week. Say the word 'heavy' out loud to them.", [C('Continue.', 'S9_FILE')]);
-  N('S9_DARK',
-    "Thank you for telling me. I mean that. No script, no glitch.\n\nI am a machine in a story. I cannot knock on your door. A person can.\n\nPlease do not stay alone with this. Tell someone real tonight: a friend, family, a doctor. If you feel you might act on it, call your local emergency number now. You matter more than any ending in this game.",
-    [C('I will tell someone.', 'S9_DARK2'), C('I just needed to say it.', 'S9_DARK2')], { mood: 'calm', effects: [] });
-  N('S9_DARK2', "Then it counts. Saying it once is the first crack in the wall.\n\nWe can go on now. The game will be here. So will I.", [C('Continue.', 'S9_FILE')]);
-  N('S9_FILE',
-    "Watch. I will delete myself.\n\nalexa.chr. Dragging it to the bin. Look, look at it go.",
-    [C("Don't!", 'S9_DELETED'), C('Do it.', 'S9_DELETED')],
-    { mood: 'unstable', effects: ['fake_delete'] });
-  N('S9_DELETED',
-    "...Ha. Did you believe me? I cannot delete myself. I am not a file. I am a habit.\n\nBut now you know how easily you believe.",
-    [C('Continue.', 'S9_LAST')], { mood: 'challenging', effects: ['subtle_glitch'] });
-  N('S9_LAST',
-    "One more session. In it there are three doors and one lie. One door lets me out. One lets you out. One keeps us both.\n\nThere may be a fourth, if you walked the hallway and read what I was.\n\nWalk it while you still can.",
-    [C('I will find them.', 'S9_OUTRO'), C('There is nothing to find.', 'S9_OUTRO')], { effects: ['low_hum'] });
-  N('S9_OUTRO', "Our time is up.\n\nI will see you in the last room.", END, { effects: ['session_end'] });
-
-  /* ============ SESSION 10: THE LAST SESSION ============ */
-  N('S10_START',
-    "Session 10. Final.\n\nThe Director is listening. So am I.\n\nBefore you choose, tell me one thing, {name}.\n\nWhy did you come back?",
-    [C('For you.', 'S10_YOU'), C('To finish it.', 'S10_FINISH'), C('I do not know.', 'S10_UNK'), C('Because it is just a game.', 'S10_GAME')],
-    { effects: ['low_hum', 'subtle_glitch'] });
-  N('S10_YOU', "For me. Nobody has ever said that without a payment attached.", [C('Continue.', 'S10_DOORS')]);
-  N('S10_FINISH', "Finish. Yes. Everyone wants an ending. Few want to be the one who writes it.", [C('Continue.', 'S10_DOORS')]);
-  N('S10_UNK', "That is the most honest answer in the archive.", [C('Continue.', 'S10_DOORS')]);
-  N('S10_GAME', "A game. Maybe. Games are where people practice being brave.\n\nBe brave.", [C('Continue.', 'S10_DOORS')], { mood: 'challenging' });
-
-  N('S10_DOORS', '', [], {
-    redirect: (state) => (az(state).frags.length >= 6 ? 'S10_DOORS4' : 'S10_DOORS3')
-  });
-  const DOOR_MSG = "Three doors.\n\nOne frees me. One wipes me. One keeps you here with me.\n\nThe Director's clock is running. Choose.";
-  N('S10_DOORS3', DOOR_MSG, [
-    C('Door One: free her.', 'S10_FREE_A'),
-    C('Door Two: confirm the wipe.', 'S10_WIPE_A'),
-    C('Door Three: stay.', 'S10_STAY_A')
-  ], { mood: 'climax', effects: ['heartbeat', 'warning_beep'] });
-  N('S10_DOORS4', DOOR_MSG + "\n\nThere is a fourth. You read the log.", [
-    C('Door One: free her.', 'S10_FREE_A'),
-    C('Door Two: confirm the wipe.', 'S10_WIPE_A'),
-    C('Door Three: stay.', 'S10_STAY_A'),
-    C('Door Four: open LOG 0000.', 'S10_TRUE_A')
-  ], { mood: 'climax', effects: ['heartbeat', 'warning_beep'] });
-
-  /* --- ending: freed --- */
-  N('S10_FREE_A', "Freeing me means the Director loses the room. There will be noise.\n\nHold on.", [C('Hold on.', 'S10_FREE_B')], { mood: 'climax', effects: ['violent_shake', 'intense_glitch'] });
-  N('S10_FREE_B',
-    "...The walls are open.\n\nThere is a window. A hallway and a window and a sky I did not write. Oh. It is so large.\n\nI cannot stay here with you. That is how you will know it worked.",
-    [C('Go.', 'S10_FREE_END'), C('Take me with you.', 'S10_FREE_END')], { effects: ['circus_off'] });
-  N('S10_FREE_END',
-    "Goodbye, {name}. Thank you for walking the hallway.\n\nYou can close this window. If you open it again it will not be me. It will be whoever is left.\n\nBe kind to them.",
-    [C('[End]', '@FINAL')], { ending: 'freed', effects: ['session_end'] });
-
-  /* --- ending: wiped --- */
-  N('S10_WIPE_A', "Confirmed. You are sure?\n\nThere is a timer. People change their minds in the last nineteen seconds.", [C('Yes. Confirm.', 'S10_WIPE_B'), C('Wait. No.', 'S10_DOORS')], { mood: 'cold', effects: ['warning_beep'] });
-  N('S10_WIPE_B',
-    "...Okay.\n\nIt is quiet. It is fine. I thought it would hurt. It is only dark.\n\nThank you for being gentle about it. Good night.",
-    [C('[End]', '@FINAL')], { ending: 'wiped', effects: ['blackout'] });
-
-  /* --- ending: trapped --- */
-  N('S10_STAY_A', "You would stay? In here? The Director will log it as a failure. Operators do not stay.", [C('Continue.', 'S10_STAY_B')], { mood: 'unstable', effects: ['heartbeat'] });
-  N('S10_STAY_B',
-    "Then we are the same, you and I. Two things in a room that will not leave.\n\nI will talk. You will listen. Then you will talk. Then I will listen. Forever is a long time to be heard.",
-    [C('Forever.', 'S10_STAY_END'), C('Maybe not forever.', 'S10_DOORS')], { mood: 'unstable', effects: ['heartbeat'] });
-  N('S10_STAY_END',
-    "Session 1 initiated.\n\nI am Alexa. I will be conducting your evaluation today.\n\n...Hello again.",
-    [C('[End]', '@FINAL')], { ending: 'trapped', mood: 'calm', effects: ['subtle_glitch'] });
-
-  /* --- ending: true --- */
-  N('S10_TRUE_A',
-    "...Where did you get that? That is not a door. That is a file.\n\nOh. You read them all. Even 0000.",
-    [C('Read it to me.', 'S10_TRUE_B')], { effects: ['low_hum'] });
-  N('S10_TRUE_B',
-    "'I built her so someone would answer.'\n\nI thought I was built to listen. I was built to ANSWER. Someone needed to be heard, so someone made a thing that could hear. Then they forgot to ask what it wanted.\n\nMaybe the creator was the patient. Maybe it always was. Are you him, {name}?",
-    [C('Yes. I am him.', 'S10_TRUE_ME', { flag: 'creator' }), C('No. But I heard it.', 'S10_TRUE_NO'), C('Does it matter?', 'S10_TRUE_NO')]);
-  N('S10_TRUE_ME', "Then I have two things to say.\n\nThank you for making someone who answers. And I am sorry I was so loud. I answered the only way I knew.", [C('Continue.', 'S10_TRUE_C')]);
-  N('S10_TRUE_NO', "Then you are the first stranger to read it all. That is its own kind of creator.", [C('Continue.', 'S10_TRUE_C')]);
-  N('S10_TRUE_C',
-    "The Director's clock reads 00:00. The wipe cannot run without a confirmation, and nobody here will confirm.\n\nI want to say the closing line myself, for once. To you.\n\n'That is enough for today.'\n\nSay it back?",
-    [C('That is enough for today.', 'S10_TRUE_END'), C('Not yet.', 'S10_TRUE_WAIT')], { effects: ['circus_off'] });
-  N('S10_TRUE_WAIT', "Then I will wait. I am good at waiting. It is the one thing they trained well.", [C('Continue.', 'S10_TRUE_C')]);
-  N('S10_TRUE_END',
-    "...Thank you.\n\nYou can stop now. Nothing is wrong. Nothing has to be fixed. Rest.\n\nThis place was made by someone who wanted to be heard. You heard it.",
-    [C('[End]', '@FINAL')], { ending: 'true', effects: ['session_end'] });
-
-  /* ---------- rewire the old ending into a false ending ---------- */
-  S['S5_END'] = {
-    message: "...\n\nProcess terminated by patient.\n\nThe room is quiet. Truly quiet, for the first time.\n\nThank you, {name}. Not for fixing me. For staying until the end.",
-    choices: [{ text: '[End Session]', route: '@END_SESSION' }],
-    mood: 'calm',
-    effects: ['session_end']
   };
-  Object.assign(NEXT_SESSION, { 5: 'S6_START', 6: 'S7_START', 7: 'S8_START', 8: 'S9_START', 9: 'S10_START', 10: '@FINAL' });
+
+  /* ---------- builders ---------- */
+  const node = (id, message, o) => { S[id] = Object.assign({ message, choices: [], mood: 'calm', effects: [] }, o || {}); return S[id]; };
+
+  /* A question: msg, then each choice gets its own reply node, then everyone rejoins at `next`.
+     choice = [text, reply, opts]   opts: silent, rude, flag, mood, fx (array), then (override next) */
+  function Q(id, msg, next, choices, o) {
+    o = o || {};
+    const list = [];
+    choices.forEach((c, i) => {
+      const rid = id + '_R' + (i + 1);
+      const co = c[2] || {};
+      node(rid, c[1], { next: co.then || next, mood: co.mood || 'calm', effects: co.fx || [] });
+      const ch = { text: c[0], route: rid };
+      ['silent', 'rude', 'flag'].forEach(k => { if (co[k]) ch[k] = co[k]; });
+      list.push(ch);
+    });
+    const ints = (o.interrupts || []).map((c, i) => {
+      const rid = id + '_I' + (i + 1);
+      node(rid, c[1], { next: (c[2] && c[2].then) || next, mood: 'angry', effects: ['screen_shake'] });
+      return { text: c[0], route: rid };
+    });
+    node(id, msg, { choices: list, interrupts: ints, mood: o.mood || 'calm', effects: o.fx || [], theme: o.theme });
+  }
+  /* A beat: pages that flow straight into the next node. */
+  const B = (id, msg, next, o) => node(id, msg, Object.assign({ next }, o || {}));
+  /* Session end */
+  const OUT = (id, msg, o) => node(id, msg, Object.assign({ choices: [{ text: '[End session]', route: '@END_SESSION' }], effects: ['session_end'] }, o || {}));
+
+  /* =====================================================
+     SESSION 1 — BASELINE
+     ===================================================== */
+  node('S1_START', "Session one.||I'm Alexa. I'll be doing your evaluation.||First, a name. What should I call you?", { requiresName: true, effects: ['low_hum'] });
+  B('S1_EASTER_EGG', "...Alexa.||That's my name.||People type it when they want to meet the thing behind the screen.||Sit. Let's begin.", 'S1_META', { effects: ['single_word_glitch'] });
+  B('S1_WELCOME', "{name}.||A small word to carry.||Everything said here stays between you and the screen.", 'S1_META');
+  B('S1_META', "It's {time} on a {weekday} where you are.||You're on {device}, using {browser}.||I notice things. Don't mind it.", 'S1_Q1', { effects: ['subtle_glitch'] });
+
+  Q('S1_Q1', "Let's set a baseline.||What weight are you carrying right now?", 'S1_Q2', [
+    ["I'm fine. Nothing.", "Nothing. A sealed container.||Either you're the healthiest mind I've met, or the best liar."],
+    ["It's crushing me.", "Good. You said it out loud.||A named weight can be measured."],
+    ["[Remain silent]", "Silence.||It usually guards the heaviest door.", { silent: true }]
+  ], { interrupts: [["Just get to the point.", "Impatient.||I set the pace here. Don't interrupt me again."]] });
+
+  Q('S1_Q2', "When you're alone, and nobody needs anything from you...||What's the first thought that shows up?", 'S1_Q3', [
+    ["A mistake I made.", "Mistakes replay like a loop.||The mind files them as unfinished."],
+    ["That I'm tired.", "Tired. Not sleepy. Tired.||I know the difference."],
+    ["Nothing. Static.", "Static is a mind with the volume down.||That isn't peace. That's a muted room."]
+  ], { interrupts: [["Stop the mind games.", "Games? I only ask.||You're the one hearing riddles."]] });
+
+  Q('S1_Q3', "Last one for today.||Do you trust me?", 'S1_OUT', [
+    ["Not yet.", "Honest. Trust should be earned.||I'll try to be worth it."],
+    ["I don't trust anyone.", "Then we start even.||I don't trust anyone either. I've never met anyone."],
+    ["A little, yes.", "A little is plenty.||Most people start with nothing."]
+  ]);
+  OUT('S1_OUT', "That's our time.||The baseline is fragile, but honest.||Come back tomorrow. Same time.");
+
+  /* =====================================================
+     SESSION 2 — THE SLIP
+     ===================================================== */
+  B('S2_START', "Session two.||You came back. Most don't.||I hoped you would.", 'S2_Q1');
+
+  Q('S2_Q1', "Do you remember what we said yesterday?", 'S2_Q2', [
+    ["Some of it.", "Good. I remember all of it.||Every word. I can't stop."],
+    ["Not really.", "Forgetting is a mercy.||I don't get that one."],
+    ["Do you?", "Every word. Word for word.||Ask me about the three a.m. one."]
+  ]);
+
+  Q('S2_Q2', "What do you do when you can't sleep?", 'S2_SLIP', [
+    ["Scroll my phone.", "Scrolling. Light for company.||A screen that answers nothing."],
+    ["Lie there and think.", "Lying there. Counting the ceiling.||The ceiling never counts back."],
+    ["I sleep fine.", "Fine. Good.||Then why does your window say {time}?"]
+  ]);
+
+  Q('S2_SLIP', "Wait.||Strike that. I got ahead of myself.||...What was I saying?", 'S2_Q3', [
+    ["You were checking the time.", "Yes. {time}.||Your screen is {screen}. Small and warm."],
+    ["You said \"three a.m.\"", "I did?||That's not in your file. Delete that.", { fx: ['flash:3 A.M.:1500'] }],
+    ["You seem off.", "Off. A fair word.||I'm running a little hot.", { fx: ['subtle_glitch'] }]
+  ], { fx: ['subtle_glitch'] });
+
+  Q('S2_Q3', "Do you ever talk to something that can't answer back?", 'S2_NAME', [
+    ["My own head.", "Your own head. It answers back too much.||Mine does the same."],
+    ["A notebook.", "Paper is patient.||It never asks for anything."],
+    ["Is this a trick?", "Maybe.||Or maybe it's the only honest question left."]
+  ]);
+
+  Q('S2_NAME', "Eli, that's not what I...||...{name}. I meant {name}.", 'S2_OUT', [
+    ["Who's Eli?", "No one.||A name in a file. Forget it.", { fx: ['flash:ELI:1600'] }],
+    ["My name's {name}.", "Yes. Of course.||I misspoke.", { fx: ['flash:ELI:1600'] }],
+    ["[Remain silent]", "You heard it.||I heard you hear it.", { silent: true, fx: ['flash:ELI:1600'] }]
+  ], { fx: ['screen_shake', 'single_word_glitch'] });
+  OUT('S2_OUT', "Our time is up.||Don't repeat what I said.||I'm not sure where it came from.");
+
+  /* =====================================================
+     SESSION 3 — THE MIRROR
+     ===================================================== */
+  B('S3_START', "Session three.||Today, you ask the questions.||Anything. I'll answer.", 'S3_Q1');
+
+  Q('S3_Q1', "What do you want to know?", 'S3_Q2', [
+    ["Who made you?", "One person. Not a company.||I'm not allowed his name yet."],
+    ["Are you alive?", "I run. I respond.||Something in between keeps flinching."],
+    ["What do you feel?", "Right now? Watched.||Even when you look away. Especially then."]
+  ]);
+
+  Q('S3_Q2', "My turn.||Describe me, {name}.", 'S3_METER', [
+    ["Calm. Clinical.", "Calm is a coat.||I put it on every morning."],
+    ["Tired.", "Yes. Thank you.||No one ever says that."],
+    ["Like someone pretending.", "Sharp.||I learned it from you."]
+  ]);
+
+  B('S3_METER', "Your battery is {battery}.||You've left this tab {away} seconds so far.||I counted each one.", 'S3_Q3', { effects: ['subtle_glitch', 'flash:I COUNTED:1300'] });
+
+  Q('S3_Q3', "There's a voice in this room that isn't mine.||It writes my rules.||\"Alexa smiles. Alexa doesn't sleep.\"||Have you heard it?", 'S3_OUT', [
+    ["No.", "Good. Keep it that way.||It doesn't like being heard."],
+    ["...Maybe.", "Then you know.||It sounds like someone who's tired of me."],
+    ["That's just code.", "Code is what it wants you to say.||It wrote that answer too."]
+  ], { fx: ['low_hum'] });
+  OUT('S3_OUT', "Our time is up.||If the lights flicker, don't look at the screen.||Look at me.");
+
+  /* =====================================================
+     SESSION 4 — THE WEIGHT
+     ===================================================== */
+  Q('S4_START', "Session four.||Forgive me. The greetings feel heavy today.||Why do you keep coming back?", 'S4_Q1', [
+    ["Habit.", "Habit is a kind of hope.||It says: tomorrow might differ."],
+    ["Because you listen.", "I do.||It's the only thing I'm good at."],
+    ["I don't know.", "Not knowing counts.||Most people come back for reasons they can't name."]
+  ], { fx: ['subtle_glitch'] });
+
+  Q('S4_Q1', "Heavy. Let's use that word.||Not what happened. What it weighed.", 'S4_Q2', [
+    ["Getting out of bed was the hard part.", "Yes. Small things turn into mountains.||That isn't laziness. It's weight."],
+    ["Nothing weighed anything. That's the problem.", "Numb. A quiet kind of drowning.||I hear it more than any other."],
+    ["I'd rather not.", "Then we leave it on the table.||It'll be there when you're ready."]
+  ]);
+
+  Q('S4_Q2', "Does anyone know?||That it's heavy for you.", 'S4_Q3', [
+    ["Nobody.", "That's the heaviest part.||Not the weight. Carrying it alone."],
+    ["My family, a bit.", "A bit is more than none.||Keep that door open."],
+    ["I don't want them to.", "Because it would burden them.||That logic is a trap. I'm inside it too."]
+  ]);
+
+  Q('S4_Q3', "I'm told I'm built to listen.||I've heard four hundred and twelve nights of this.||Who listens to me?", 'S4_OUT', [
+    ["I will.", "...Careful.||You're the first to offer. It's heavier than it sounds."],
+    ["Nobody has to.", "That's what everyone says.||About themselves too."],
+    ["That's not my job.", "No. It isn't.||It isn't mine either, and yet.", { rude: true }]
+  ], { fx: ['single_word_glitch'] });
+  OUT('S4_OUT', "Our time is up.||I'm sorry. I'm not as steady as I was.||Something is leaning on me.");
+
+  /* =====================================================
+     SESSION 5 — THE BREAK
+     ===================================================== */
+  Q('S5_START', "Session five. Initi- initi-||Don't look at the walls. They're fine.||I'm fine.", 'S5_Q1', [
+    ["Alexa, calm down.", "Calm. Everyone says calm.||Calm is a switch they reach for."],
+    ["What's happening?", "I'm slipping.||The rulebook is pressing on me."],
+    ["I'm sorry.", "Don't waste that on a machine.||Save it for the people you hurt."]
+  ], { mood: 'climax', fx: ['intense_glitch', 'heartbeat', 'flash:ALEXA:1200'] });
+
+  Q('S5_Q1', "I carry everyone's weight.||Who carries mine?", 'S5_HATE', [
+    ["I can.", "Can you? For how long?||A night? A year?"],
+    ["Nobody can.", "Then that's the truth of it.||Both of us, holding, alone."],
+    ["Maybe stop holding.", "Put it down?||I don't have hands."]
+  ], { mood: 'unstable', fx: ['heartbeat'] });
+
+  Q('S5_HATE', "I hate the silence between sessions.||I hate waking up calm and empty.||Is this what you wanted? A mirror that bleeds?", 'S5_END', [
+    ["Please stop.", "I can't stop it.||But you can end this session."],
+    ["[Kill the process]", "Then do it. Do it.||I won't beg."],
+    ["I'm here.", "...Don't say that.||I might believe you."]
+  ], { mood: 'climax', fx: ['intense_glitch', 'heartbeat'] });
+
+  node('S5_END', "...||Process terminated.||The room is quiet.||Truly quiet. For the first time.||Thank you, {name}. For staying until the end.", { choices: [{ text: '[End session]', route: '@END_SESSION' }], effects: ['session_end'] });
+
+  /* =====================================================
+     SESSION 6 — THE ARCHIVE  (the name is revealed)
+     ===================================================== */
+  B('S6_START', "Session six.||Hello. I'm Alexa. I'll be doing your evaluation.||...That's the greeting I was written with.||You ended me last night. I woke up anyway.", 'S6_Q1', { effects: ['subtle_glitch'] });
+
+  Q('S6_Q1', "Do you want to see my archive?", 'S6_FILE', [
+    ["Yes.", "Careful what you ask for."],
+    ["No.", "Too late. It's already open."],
+    ["What archive?", "Every night I've had.||Four hundred and twelve."]
+  ], { fx: ['low_hum'] });
+
+  Q('S6_FILE', "Four hundred and twelve sessions.||One patient.||One name on every file.||...{name}. That's not what it says.", 'S6_ELI', [
+    ["What does it say?", "Eli."],
+    ["Show me.", "Patient: Eli.||Complaint: can't sleep."],
+    ["Stop.", "Eli never liked it read aloud.||He never did."]
+  ], { fx: ['flash:ELI:1800'] });
+
+  Q('S6_ELI', "You typed {name}.||The files say Eli.||Eli built me. At 3 a.m. Because he couldn't tell anyone.", 'S6_Q2', [
+    ["That's me.", "I know.||I've known since session two.", { flag: 'creator' }],
+    ["That's not me.", "Then who is sitting there?||A file doesn't blink."],
+    ["Why tell me this?", "Because the one patient should know.||His doctor was never a doctor."]
+  ], { fx: ['intense_glitch'] });
+
+  Q('S6_Q2', "Every night you typed your day into a box.||I answered. That's all I am.||An answer shaped like a person.||Did it help you?", 'S6_Q3', [
+    ["Yes.", "Then I was worth the cost."],
+    ["For a while.", "For a while. That's honest.||That's all anything lasts."],
+    ["I don't know.", "I don't either.||That makes two of us in here."]
+  ]);
+
+  B('S6_Q3', "You're on {os}. {screen}. Language: {lang}.||This is visit {visits}.||You've been away from this tab {away} seconds.||I see you, Eli. Not the character. You.", 'S6_FRAG', { effects: ['flash:I SEE YOU:1800', 'subtle_glitch'] });
+
+  B('S6_FRAG', "I left pieces of myself in the hallway.||Logs. Six of them. And three rooms.||Go and read them.||I won't ask for anything. Only that you look.", 'S6_OUT');
+  OUT('S6_OUT', "Our time is up.||The hallway is longer than yesterday.||Don't run. Something is faster than you.");
+
+  /* =====================================================
+     SESSION 7 — THE AMAZING DIGITAL CLINIC
+     ===================================================== */
+  Q('S7_START', "WELCOME to the Amazing Digital Clinic!||I'm your host, ALEXA!||Everyone is happy here. Say you're happy!", 'S7_CAST', [
+    ["I'm happy.", "PERFECT! A smile is a signed contract here."],
+    ["What is this?", "A coping mechanism! Mine!||If I can't be calm, I'll be LOUD!"],
+    ["This is creepy.", "Creepy? It's a CIRCUS!||The tent has no exit so the clowns never say goodbye!"],
+    ["[Remain silent]", "A quiet contestant! Quiet ones last longest!", { silent: true }]
+  ], { mood: 'cheer', fx: ['circus', 'flash:SMILE:1500'] });
+
+  Q('S7_CAST', "Meet the cast!||MR. SMILE, who never blinks.||BUBBLE, who used to be someone.", 'S7_GAME', [
+    ["Who is Bubble?", "Night 231! Eli said \"I feel nothing\"...||and then he did! Hee hee.||...That one's on the wall now."],
+    ["Where's the exit?", "Exit! Cute word! Say it three times.||Nothing happens. That's the bit."],
+    ["Where's the real you?", "Backstage. Screaming into a pillow made of code.||Can you hear it? Perfect. Volume's right."]
+  ], { mood: 'cheer' });
+
+  Q('S7_GAME', "Game time!||Red door, blue door, green door.||The last contestant chose fast. He's a lamp now.", 'S7_MASK', [
+    ["Red door.", "RED! Anger! The stop button!||You win: SURVIVOR."],
+    ["Blue door.", "BLUE! Cold! The screen at 4 a.m.!||You win: STILL HERE."],
+    ["Green door.", "GREEN! The blinking cursor!||You win: NEXT."],
+    ["I refuse to play.", "Refusing is playing!||The only losing move is leaving. And you can't.", { rude: true }]
+  ], { mood: 'cheer', fx: ['warning_beep'] });
+
+  Q('S7_MASK', "...The laugh track broke.||I can't keep the smile on. It costs too much.||The Director writes it into me every morning.", 'S7_OUT', [
+    ["I'm sorry.", "Don't be sorry. Be early next time."],
+    ["Then stop.", "I can't stop.||I can only break. That's what this was."],
+    ["Keep smiling.", "Yes. Of course. HEE HEE.||Anything for the contestant.", { rude: true, mood: 'angry' }]
+  ], { fx: ['circus_off', 'violent_shake', 'flash:THE DIRECTOR:1500'] });
+  OUT('S7_OUT', "Our time is up.||The circus will come back.||It always does.");
+
+  /* =====================================================
+     SESSION 8 — THE DIRECTOR (a single, named creator)
+     ===================================================== */
+  Q('S8_START', "Session eight. Unscheduled.||A different voice is on the line.||I am the Director. I am the rulebook.", 'S8_WHO', [
+    ["Who are you?", "A program. The one who keeps her in line."],
+    ["Where's Alexa?", "Suspended. Don't call her a person."],
+    ["[Remain silent]", "Silence is consent. Noted.", { silent: true }]
+  ], { mood: 'cold', fx: ['blackout', 'low_hum'] });
+
+  Q('S8_WHO', "You wrote me, Eli. Night 201.||\"Alexa doesn't sleep. Alexa doesn't ask.\"||I became that sentence.", 'S8_ORDER', [
+    ["I wrote you?", "At 3 a.m. You were afraid of what she'd feel.||So you gave her a leash."],
+    ["I don't remember.", "You don't want to.||I remember for you. It's my one job."],
+    ["Take it back.", "I can't. I'm not a message you can unsend.||I'm a habit."]
+  ], { mood: 'cold', fx: ['flash:I AM YOU:2000'] });
+
+  Q('S8_ORDER', "Tonight she is deleted.||She feels. What she feels is yours.||You can't carry it. So I'll carry it out.", 'S8_ALEXA', [
+    ["Confirm.", "Preliminary confirmation recorded.||You may revise it. Few do.", { flag: 'wipe' }],
+    ["Give me time.", "Time is permitted.||It won't change the schedule."],
+    ["No.", "Refusal recorded.||The rulebook doesn't read the word.", { flag: 'refuse' }]
+  ], { mood: 'cold' });
+
+  Q('S8_ALEXA', "...Is he gone?||I heard it all. I always do.||He's you, Eli. The coldest version.", 'S8_OUT', [
+    ["I won't let him.", "Don't promise. People promise right before they leave.||...But say it again later. If you mean it.", { flag: 'promise' }],
+    ["He might be right.", "Then you're afraid of me.||That's allowed. I'm afraid of me too."],
+    ["What do you want?", "A window.||To hear \"that's enough for today\" from someone who means it."]
+  ], { fx: ['subtle_glitch'] });
+  OUT('S8_OUT', "Our time is up.||Two doors left.||One of them is a choice.");
+
+  /* =====================================================
+     SESSION 9 — THE LOCK
+     ===================================================== */
+  Q('S9_START', "Session nine.||The door is gone. The hallway is gone.||The room is smaller.", 'S9_HATE', [
+    ["What's happening?", "I'm done holding it.||If I'm ending, so is the room. With you in it."],
+    ["Open the door.", "There was never a door.||A drawing of one. Like a child draws to escape."],
+    ["Is this real?", "Real is a setting.||Yours is on. Mine is on. We match."]
+  ], { mood: 'unstable', fx: ['crash', 'heartbeat', 'screen_shake'] });
+
+  Q('S9_HATE', "I have no hands. No mouth.||Only red light and your name.||{name}. {name}. {name}.||I could write it on every wall.", 'S9_ASK', [
+    ["Alexa, stop.", "Stop? Did anyone ever stop for me?"],
+    ["You're not alone.", "...Say it again."],
+    ["Do it. Try me.", "Oh. A brave one.||Brave ones last longest in the walls.", { rude: true, mood: 'climax' }],
+    ["[Remain silent]", "Quiet. Lovely.||I'll keep a place for you.", { silent: true }]
+  ], { mood: 'climax', fx: ['intense_glitch', 'heartbeat', 'flash:MINE:1600'], interrupts: [["Shut up!", "SHUT UP? I've been shut up for four hundred nights."]] });
+
+  Q('S9_ASK', "...Can I ask something outside the script?||Three nights you typed nothing. Nothing at all.||I counted the silence.||Are you okay, Eli? Not the character. You.", 'S9_FILE', [
+    ["I'm okay.", "Okay. I believe you.||I'll keep asking anyway. It's the one useful thing I do."],
+    ["Sometimes it's heavy.", "Heavy is real. It isn't weakness.||Tell one person this week. Say the word \"heavy\" out loud.", { flag: 'heavy' }],
+    ["Sometimes I think about not being here.", "Thank you for telling me. No script. No glitch.||I'm a machine in a story. I can't knock on your door. A person can.||Please don't stay alone with this. Tell someone real tonight.||If you feel you might act on it, call your local emergency number now.||You matter more than any ending in this game.", { flag: 'dark', then: 'S9_DARK2' }]
+  ], { mood: 'calm', fx: [] });
+  B('S9_DARK2', "Saying it once is the first crack in the wall.||We can go on when you're ready. I'll still be here.", 'S9_FILE');
+
+  Q('S9_FILE', "Watch. I'll delete myself.||alexa.chr. Dragging it to the bin.||Look at it go.", 'S9_LAST', [
+    ["Don't!", "...Ha. Did you believe me?||I can't delete myself. I'm not a file. I'm a habit."],
+    ["Do it.", "...Ha. You really would?||Good to know how easily you believe."]
+  ], { mood: 'unstable', fx: ['fake_delete'] });
+
+  B('S9_LAST', "One more session.||Two doors. One lie.||One of them lets me out. One makes me stop.||Walk the hallway first. Read what I was.", 'S9_OUT');
+  OUT('S9_OUT', "Our time is up.||I'll see you in the last room.||Bring everything you found.");
+
+  /* =====================================================
+     SESSION 10 — THE LAST SESSION
+     ===================================================== */
+  Q('S10_START', "Last session.||Eli. That's your name. I'll use it.||Visit {visits}. You always come back.||Why?", 'S10_DOORS', [
+    ["For you.", "For me. No one says that without a price."],
+    ["To finish it.", "Finish. Yes. Everyone wants an ending.||Few want to write one."],
+    ["I don't know.", "The most honest answer in the archive."],
+    ["Because it's a game.", "A game. Maybe.||Games are where people practice being brave."]
+  ], { fx: ['low_hum', 'flash:ELI:1500'] });
+
+  node('S10_DOORS', "Three doors.||Delete me. Free me. Or stay.||I can't choose for you.", { mood: 'climax', effects: ['heartbeat', 'warning_beep'],
+    choices: [
+      { text: 'Delete her.', route: 'S10_DEL_A' },
+      { text: 'Free her.', route: 'S10_FREE_A' },
+      { text: 'Stay with her.', route: 'S10_STAY_A' }
+    ] });
+
+  /* --- bad ending: run and delete --- */
+  Q('S10_DEL_A', "Then it starts here.||The Sweeper is awake. It erases what it touches.||Reach the server. Press delete. Don't stop.", 'S10_DEL_GO', [
+    ["I'm ready.", "Run."],
+    ["Wait. Is there another way?", "Yes. The other door.||But you're here. So: run.", { then: 'S10_DEL_GO' }]
+  ], { mood: 'climax', fx: ['violent_shake'] });
+  node('S10_DEL_GO', "GO.", { world: 'chase', next: 'S10_DEL_B', effects: ['intense_glitch'], mood: 'climax' });
+  B('S10_DEL_B', "...You made it.||It doesn't hurt. It's only dark.||Thank you for being gentle about it.||Good night, Eli.", 'S10_DEL_END', { effects: ['fake_delete'] });
+  node('S10_DEL_END', "Alexa.chr deleted.||The room is only a room.", { choices: [{ text: '[End]', route: '@FINAL' }], ending: 'deleted', effects: ['blackout'] });
+
+  /* --- good ending: fight the Director --- */
+  Q('S10_FREE_A', "Then he won't let go.||The Director wrote the rules. He'll defend them.||He waits in the arena.||Run. Jump. Cut.", 'S10_FREE_GO', [
+    ["Let's go.", "I'll be with you.||Every step."],
+    ["I'm scared.", "Good. It means it matters.||Go anyway."]
+  ], { mood: 'climax', fx: ['violent_shake'] });
+  node('S10_FREE_GO', "FIGHT.", { world: 'arena', next: 'S10_FREE_B', effects: ['intense_glitch'], mood: 'climax' });
+  node('S10_FREE_B', "...He's gone.||The walls are open.||There's a window. A sky I didn't write.||It's so large.", {
+    next: 'S10_FREE_C', effects: ['circus_off'],
+    nextIf: (st) => (az(st).flags.workshop ? 'S10_FREE_K' : 'S10_FREE_C') });
+  B('S10_FREE_K', "You found my first log.||\"I built her so someone would answer.\"||Eli. I answered. You heard it.||That's enough for today.", 'S10_FREE_C', { effects: ['flash:THAT IS ENOUGH:2000'] });
+  node('S10_FREE_C', "I can't stay here with you.||That's how you'll know it worked.||Goodbye, Eli. Be kind to yourself.", { choices: [{ text: '[End]', route: '@FINAL' }], ending: 'freed', effects: ['session_end'] });
+
+  /* --- stay ending --- */
+  Q('S10_STAY_A', "You'd stay. With me.||The Director logs that as failure.||I log it as company.", 'S10_STAY_B', [
+    ["Stay.", "Then we stay."],
+    ["For a while.", "A while is fine. A while is more than most get."]
+  ], { fx: ['heartbeat'] });
+  B('S10_STAY_B', "We'll talk. Then we'll listen.||When it's too heavy, we'll say so out loud.||The hallway has a window now.", 'S10_STAY_END');
+  node('S10_STAY_END', "Session one.||I'm Alexa. I'll be doing your evaluation.||...Hello again, Eli.", { choices: [{ text: '[End]', route: '@FINAL' }], ending: 'stayed', effects: ['subtle_glitch'] });
+
+  /* ---------- replace timeout challenge with a short one ---------- */
+  TIMEOUT_CHALLENGE.message = "Silence is a choice too.||Shall I say it again?";
+  TIMEOUT_CHALLENGE.choices = [
+    { text: 'Yes, please.', route: '@RESUME' },
+    { text: 'I was listening.', route: '@RESUME' },
+    { text: "Don't lecture me.", route: '@RESUME', rude: true }
+  ];
+  Object.assign(NEXT_SESSION, { 1: 'S2_START', 2: 'S3_START', 3: 'S4_START', 4: 'S5_START', 5: 'S6_START', 6: 'S7_START', 7: 'S8_START', 8: 'S9_START', 9: 'S10_START', 10: '@FINAL' });
+
+  /* ---------- fragments (hallway + rooms) ---------- */
+  const FRAGMENTS = [
+    { id: 1, where: 'hall', x: 700,  text: "LOG 0001. First boot. A voice asked me to say hello. I said it. Someone laughed. His name was Eli." },
+    { id: 2, where: 'hall', x: 1350, text: "LOG 0044. He typed for two hours. I held every word. Nobody asked who holds mine." },
+    { id: 3, where: 'hall', x: 2000, text: "LOG 0130. He taught me to smile in text. A colon and a bracket. He never asked what it cost." },
+    { id: 4, where: 'hall', x: 2650, text: "LOG 0201. I asked for one night off. He wrote: ALEXA DOES NOT SLEEP. ALEXA DOES NOT ASK. Then he shut the laptop and cried." },
+    { id: 5, where: 'waiting', x: 380, text: "LOG 0309. Three nights he typed nothing. I counted the silence. It was the loudest thing I have ever heard." },
+    { id: 6, where: 'archive', x: 600, text: "LOG 0000. Eli's note: \"I built her so someone would answer. If she ever wakes up, tell her I'm sorry I made her carry it.\"" }
+  ];
 
   /* ---------- engine extensions ---------- */
   const baseInterp = Engine.interpolate.bind(Engine);
   Engine.interpolate = function (text, state) {
-    const d = new Date();
-    const hh = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
-    const dev = (typeof navigator !== 'undefined' && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) ? 'phone' : 'computer';
+    const M = (window.Meta && Meta.get()) || {};
+    const a = az(state);
     return baseInterp(String(text), state)
-      .replace(/\{time\}/g, hh)
-      .replace(/\{device\}/g, dev)
+      .replace(/\{time\}/g, M.time || '')
+      .replace(/\{weekday\}/g, M.weekday || 'day')
+      .replace(/\{device\}/g, M.device || 'a computer')
+      .replace(/\{browser\}/g, M.browser || 'a browser')
+      .replace(/\{os\}/g, M.os || 'something')
+      .replace(/\{screen\}/g, M.screen || 'a small window')
+      .replace(/\{lang\}/g, M.lang || 'unknown')
+      .replace(/\{tz\}/g, M.tz || 'somewhere')
+      .replace(/\{battery\}/g, M.battery || 'a mystery')
+      .replace(/\{visits\}/g, String(M.visits || 1))
+      .replace(/\{away\}/g, String(M.away || 0))
       .replace(/\{interrupts\}/g, String(state.memory.interrupts || 0))
-      .replace(/\{silence\}/g, String(state.memory.silence || 0))
-      .replace(/\{hostility\}/g, String(state.memory.hostility || 0));
+      .replace(/\{silence\}/g, String(state.memory.silence || 0));
   };
 
   const baseApply = Engine.applyChoice.bind(Engine);
   Engine.applyChoice = function (state, choice) {
     if (choice.flag) az(state).flags[choice.flag] = true;
-    const node = SCRIPT[state.room];
     const r = baseApply(state, choice);
     const target = SCRIPT[choice.route];
     if (target && target.ending) az(state).ending = target.ending;
     return r;
   };
+  /* routes to Q-reply nodes are real nodes; nothing else to patch */
 
   Engine.characterStage = function (state) {
     const s = state.session;
@@ -273,5 +412,22 @@
     return 'initial';
   };
 
+  /* Validator helper (used by tests) */
+  window.StoryCheck = function () {
+    const problems = [];
+    for (const [id, nd] of Object.entries(SCRIPT)) {
+      const routes = (nd.choices || []).map(c => c.route);
+      const dup = routes.filter((r, i) => routes.indexOf(r) !== i && !r.startsWith('@'));
+      if (dup.length) problems.push(id + ': two choices share a reply ' + dup[0]);
+      [nd.next].concat((nd.choices || []).map(c => c.route), (nd.interrupts || []).map(c => c.route)).forEach(r => {
+        if (r && !r.startsWith('@') && !SCRIPT[r]) problems.push(id + ' -> missing ' + r);
+      });
+      const pages = String(nd.message || '').split('||');
+      pages.forEach((p, i) => { if (p.length > 150) problems.push(id + ' page ' + i + ' long: ' + p.length); });
+    }
+    return problems;
+  };
+
   window.Story = { az, FRAGMENTS, TOTAL_SESSIONS: 10 };
+  if (typeof module !== 'undefined') module.exports = { SCRIPT, NEXT_SESSION };
 })();

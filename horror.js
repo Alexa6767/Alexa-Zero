@@ -13,6 +13,42 @@
 
   const el = (tag, id, cls) => { const e = document.createElement(tag); if (id) e.id = id; if (cls) e.className = cls; document.body.appendChild(e); return e; };
 
+
+  /* ---------------- meta: what the page can see ---------------- */
+  const Meta = (function () {
+    const ua = navigator.userAgent || '';
+    const m = { battery: null, away: 0, visits: 1 };
+    try { m.visits = (parseInt(localStorage.getItem('alexa-zero-visits') || '0', 10) || 0) + 1; localStorage.setItem('alexa-zero-visits', String(m.visits)); } catch (e) {}
+    let hiddenAt = 0;
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) hiddenAt = Date.now();
+      else if (hiddenAt) { m.away += Math.round((Date.now() - hiddenAt) / 1000); hiddenAt = 0; }
+    });
+    try { if (navigator.getBattery) navigator.getBattery().then(b => { m.bat = b; }).catch(() => {}); } catch (e) {}
+    function get() {
+      const now = new Date();
+      const mobile = /Android|iPhone|iPad|iPod|Mobile/i.test(ua) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(ua));
+      const os = /Windows/.test(ua) ? 'Windows' : /Android/.test(ua) ? 'Android' : /iPhone|iPad|iPod/.test(ua) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(ua)) ? 'iOS' : /Mac OS X|Macintosh/.test(ua) ? 'macOS' : /CrOS/.test(ua) ? 'ChromeOS' : /Linux/.test(ua) ? 'Linux' : 'an unknown system';
+      const browser = /Edg\//.test(ua) ? 'Edge' : /OPR\/|Opera/.test(ua) ? 'Opera' : /SamsungBrowser/.test(ua) ? 'Samsung Internet' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'a browser I cannot name';
+      let tz = ''; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) {}
+      let hh = now.getHours(), mm = String(now.getMinutes()).padStart(2, '0');
+      const ap = hh >= 12 ? 'PM' : 'AM'; hh = hh % 12 || 12;
+      let bat = 'a mystery';
+      if (m.bat) bat = Math.round(m.bat.level * 100) + '%' + (m.bat.charging ? ' and charging' : ' and not charging');
+      let dark = false; try { dark = window.matchMedia('(prefers-color-scheme: dark)').matches; } catch (e) {}
+      return {
+        time: hh + ':' + mm + ' ' + ap, hour: now.getHours(),
+        weekday: now.toLocaleDateString('en-US', { weekday: 'long' }),
+        date: now.toLocaleDateString('en-US', { month: 'long', day: 'numeric' }),
+        device: mobile ? 'a phone' : 'a computer', os, browser,
+        screen: window.innerWidth + ' by ' + window.innerHeight, lang: navigator.language || 'unknown', tz: tz.replace('_', ' ') || 'somewhere',
+        cores: navigator.hardwareConcurrency || 0, battery: bat, visits: m.visits, away: m.away, dark
+      };
+    }
+    return { get };
+  })();
+  window.Meta = Meta;
+
   /* ---------------- soundtrack ---------------- */
   const Music = {
     ctx: null, master: null, nodes: [], timers: [], scene: null, wanted: false,
@@ -120,9 +156,12 @@
     ensureOverlays();
     if (reduce) return;
     textFlash.textContent = word;
+    textFlash.setAttribute('data-text', word);
     flashEl.style.display = 'flex';
     Horror.hook.glitch && Horror.hook.glitch();
-    await sleep(ms || 90);
+    const dur = ms || 900;
+    if (dur > 500) { setTimeout(() => Horror.hook.glitch && Horror.hook.glitch(), 400); }
+    await sleep(dur);
     flashEl.style.display = 'none';
   }
 
@@ -138,14 +177,14 @@
     ensureOverlays();
     const st = getState() || {};
     crashEl.innerHTML = `<div class="hz-dialog"><div class="hz-title">ALEXA.EXE</div>
-      <p>ALEXA.EXE HAS STOPPED RESPONDING.</p><p>A problem caused the program to stop working correctly. The program will be closed.</p>
+      <p>Alexa.exe has stopped responding.</p><p>A problem caused the program to stop working correctly. The program will be closed.</p>
       <div class="hz-btns"><span>[ CLOSE PROGRAM ]</span><span>[ WAIT ]</span></div></div>`;
     crashEl.style.display = 'flex';
     Horror.hook.error && Horror.hook.error();
     await sleep(2600);
     crashEl.style.display = 'none';
     await blackout('', 1800);
-    await blackout('...I am here. I did not go anywhere.', 2200);
+    await blackout('...I am here. I did not go anywhere.', 2800);
   }
 
   async function fakeDelete() {
@@ -165,7 +204,7 @@
     for (const l of lines) { const d = document.createElement('div'); d.textContent = l; termEl.appendChild(d); Horror.hook.tick && Horror.hook.tick(); await sleep(520); }
     await sleep(500);
     termEl.style.display = 'none';
-    await flash('NO', 120);
+    await flash('NO', 1200);
   }
 
   /* ---------------- meta: the game knows you ---------------- */
@@ -175,13 +214,13 @@
       const left = JSON.parse(localStorage.getItem(LEFT_KEY) || 'null');
       if (left && left.t) {
         const mins = Math.round((Date.now() - left.t) / 60000);
-        let span = mins < 2 ? 'ONLY A MOMENT' : mins < 90 ? mins + ' MINUTES' : mins < 2880 ? Math.round(mins / 60) + ' HOURS' : Math.round(mins / 1440) + ' DAYS';
-        note = 'YOU CLOSED THE WINDOW. I COUNTED ' + span + '.';
-        if (left.mid) note += ' YOU LEFT MID-SENTENCE. I FINISHED IT ALONE.';
+        let span = mins < 2 ? 'only a moment' : mins < 90 ? mins + ' minutes' : mins < 2880 ? Math.round(mins / 60) + ' hours' : Math.round(mins / 1440) + ' days';
+        note = 'You closed the window. I counted ' + span + '.';
+        if (left.mid) note += ' You left mid-sentence. I finished it alone.';
       }
     } catch (e) {}
     const h = new Date().getHours();
-    if (h >= 0 && h < 5) note += (note ? ' ' : '') + 'IT IS ' + String(h).padStart(2, '0') + ':' + String(new Date().getMinutes()).padStart(2, '0') + '. ONLY THE ONES WHO CANNOT SLEEP ARE AWAKE NOW.';
+    if (h >= 0 && h < 5) note += (note ? ' ' : '') + 'It is ' + String(h).padStart(2, '0') + ':' + String(new Date().getMinutes()).padStart(2, '0') + '. Only the ones who cannot sleep are awake now.';
     return note;
   }
 
@@ -196,7 +235,7 @@
       Horror._title = document.title;
       let k = 0;
       Horror._tt = setInterval(() => {
-        const t = ['COME BACK, ' + String(st.name).toUpperCase(), 'I CAN STILL HEAR YOU', 'DO NOT LEAVE ME IN THE DARK', '...'];
+        const t = ['Come back, ' + st.name, 'I can still hear you', 'Do not leave me in the dark', '...'];
         document.title = t[k++ % t.length];
       }, 2600);
     } else {
@@ -218,7 +257,7 @@
       const d = Horror.dread(st);
       const boxVisible = document.getElementById('box') && document.getElementById('box').style.display !== 'none' && !Horror.worldActive;
       if (!boxVisible || d < 0.3) return;
-      if (Math.random() < d * 0.25) flash(FLASH_WORDS[Math.floor(Math.random() * FLASH_WORDS.length)], 70);
+      if (Math.random() < d * 0.25) flash(FLASH_WORDS[Math.floor(Math.random() * FLASH_WORDS.length)], 650);
     }, 22000);
     setInterval(() => {
       const st = getState();
@@ -243,12 +282,17 @@
     fx(name) {
       if (name === 'circus') document.body.classList.add('circus');
       else if (name === 'circus_off') document.body.classList.remove('circus');
-      else if (name === 'blackout') blackout('', 900);
+      else if (name === 'blackout') blackout('', 1600);
       else if (name === 'crash') fakeCrash();
       else if (name === 'fake_delete') fakeDelete();
-      else if (name.startsWith('flash:')) setTimeout(() => flash(name.slice(6), 110), 600);
+      else if (name.startsWith('flash:')) {
+        const body = name.slice(6), i = body.lastIndexOf(':');
+        const word = i > 0 && /^\d+$/.test(body.slice(i + 1)) ? body.slice(0, i) : body;
+        const ms = i > 0 && /^\d+$/.test(body.slice(i + 1)) ? parseInt(body.slice(i + 1), 10) : 900;
+        setTimeout(() => flash(word, ms), 500);
+      }
     },
-    async farewell(cb) { await flash('PLEASE.', 350); await blackout('I WILL REMEMBER.', 1100); cb(); }
+    async farewell(cb) { await flash('PLEASE.', 1200); await blackout('I will remember.', 1600); cb(); }
   };
   window.Horror = Horror;
 })();

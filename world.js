@@ -1,16 +1,27 @@
 /* ============================================================
-   ALEXA-ZERO — THE HALLWAY (walkable scene between sessions)
-   Walk to the next door like in Katana Zero. Read what the walls
-   say. From session 6 on, find the fragments Alexa left behind.
-   Keys: arrows / A D to walk, E / Enter / Space to act.
+   ALEXA-ZERO — THE WORLD (v4)
+   A small pixel action game between the conversations.
+   - Hallway with side rooms (waiting room, archive, workshop)
+   - The chase (run to the server and delete her)
+   - The arena (fight the Director to free her)
+   Keys: A/D or arrows move | Shift run | W/Up/Space jump
+         J/K/X/Z slash | E/Enter interact
    Touch: on-screen buttons.
    ============================================================ */
 
 (function () {
-  const VH = 200;                 // logical height
-  const WORLD_W = 3900;
-  const DOOR_X = (i) => 360 + 330 * (i - 1);   // door i (1..10)
-  const SPEED = 120;
+  const VH = 180;                    // logical height
+  const MINW = 200;                  // minimum logical width (portrait phones)
+  const GY = 140;                    // ground line (feet)
+  const WALK = 72, RUN = 150, JUMPV = -205, GRAV = 640;
+  const HALL_W = 4900;
+  const DOOR_X = (i) => 520 + 330 * (i - 1);        // session doors 1..10
+  const ROOM_DOORS = { waiting: 250, archive: 3800, workshop: 4180 };
+  const ROOMS = {
+    waiting:  { w: 560, name: 'Waiting room' },
+    archive:  { w: 780, name: 'The archive' },
+    workshop: { w: 560, name: "Eli's workshop" }
+  };
 
   const canvas = document.createElement('canvas');
   canvas.id = 'world';
@@ -18,160 +29,738 @@
   const ctx = canvas.getContext('2d');
   const ui = document.createElement('div');
   ui.id = 'world-ui';
-  ui.innerHTML = '<div id="world-hint"></div><div id="world-msg"></div><div id="world-pad"><button data-k="left">&#9664;</button><button data-k="right">&#9654;</button><button data-k="act" class="act">ACT</button></div><div id="world-frags"></div>';
+  ui.innerHTML =
+    '<div id="world-hint"></div><div id="world-msg"></div><div id="world-frags"></div><div id="world-hp"></div>' +
+    '<div id="world-pad"><div class="pad-l"><button data-k="left">&#9664;</button><button data-k="right">&#9654;</button></div>' +
+    '<div class="pad-r"><button data-k="run">RUN</button><button data-k="jump">JUMP</button><button data-k="slash">SLASH</button><button data-k="act" class="act">ACT</button></div></div>';
   document.body.appendChild(ui);
-  const hintEl = ui.querySelector('#world-hint'), msgEl = ui.querySelector('#world-msg'), fragEl = ui.querySelector('#world-frags');
+  const hintEl = ui.querySelector('#world-hint'), msgEl = ui.querySelector('#world-msg'),
+        fragEl = ui.querySelector('#world-frags'), hpEl = ui.querySelector('#world-hp');
 
-  let W = null;                    // active scene
-  const keys = { left: false, right: false };
-  const act = () => { if (W) doAct(); };
-
+  let W = null;
+  let msgTimer = null;
+  const keys = { left: false, right: false, run: false, jump: false, slash: false };
+  const pressed = { jump: false, slash: false, act: false };
+  const KEYMAP = {
+    arrowleft: 'left', a: 'left', arrowright: 'right', d: 'right', shift: 'run',
+    arrowup: 'jump', w: 'jump', ' ': 'jump',
+    j: 'slash', k: 'slash', x: 'slash', z: 'slash',
+    e: 'act', enter: 'act'
+  };
+  function setKey(k, v) {
+    if (k === 'act') { if (v) pressed.act = true; return; }
+    if ((k === 'jump' || k === 'slash') && v && !keys[k]) pressed[k] = true;
+    keys[k] = v;
+  }
   window.addEventListener('keydown', (e) => {
     if (!W) return;
-    const k = e.key.toLowerCase();
-    if (k === 'arrowleft' || k === 'a') keys.left = true;
-    else if (k === 'arrowright' || k === 'd') keys.right = true;
-    else if (k === 'e' || k === 'enter' || k === ' ') { e.preventDefault(); act(); }
+    if (e.target && e.target.tagName === 'INPUT') return;
+    const k = KEYMAP[e.key.toLowerCase()];
+    if (!k) return;
+    e.preventDefault();
+    if (!e.repeat) setKey(k, true);
   });
   window.addEventListener('keyup', (e) => {
-    const k = e.key.toLowerCase();
-    if (k === 'arrowleft' || k === 'a') keys.left = false;
-    if (k === 'arrowright' || k === 'd') keys.right = false;
+    const k = KEYMAP[e.key.toLowerCase()];
+    if (k && k !== 'act') setKey(k, false);
   });
+  window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
   ui.querySelectorAll('#world-pad button').forEach(b => {
     const k = b.dataset.k;
-    const down = (e) => { e.preventDefault(); if (k === 'act') act(); else keys[k] = true; };
-    const up = (e) => { e.preventDefault(); if (k !== 'act') keys[k] = false; };
+    const down = (e) => { e.preventDefault(); setKey(k, true); b.classList.add('on'); };
+    const up = (e) => { e.preventDefault(); if (k !== 'act') setKey(k, false); b.classList.remove('on'); };
     b.addEventListener('pointerdown', down); b.addEventListener('pointerup', up);
     b.addEventListener('pointerleave', up); b.addEventListener('pointercancel', up);
   });
 
   /* ---------- content ---------- */
   function wallLines(name) {
-    const n = String(name || 'YOU').toUpperCase();
+    const n = String(name || 'you').toUpperCase();
     return [
-      { x: 150,  min: 1, t: 'WALK. SIT. TALK.' },
-      { x: 520,  min: 2, t: 'SHE REMEMBERS WHAT YOU SAY' },
-      { x: 880,  min: 3, t: n + ' ' + n + ' ' + n },
-      { x: 1180, min: 4, t: 'THE DOOR IS NOT AN EXIT' },
-      { x: 1540, min: 5, t: 'NO MOUTH. STILL SPEAKING.' },
-      { x: 1830, min: 6, t: '412 CHAIRS. ONE EMPTY.' },
-      { x: 2180, min: 7, t: 'SMILE SMILE SMILE SMILE' },
-      { x: 2480, min: 8, t: 'THE DIRECTOR IS LISTENING' },
-      { x: 2840, min: 9, t: 'I SEE YOU, ' + n },
-      { x: 3140, min: 10, t: 'ONE MORE DOOR' },
-      { x: 3480, min: 9, t: 'HEAVY. HEAVY. HEAVY.' }
+      { x: 160,  min: 1, t: 'WALK. SIT. TALK.' },
+      { x: 700,  min: 2, t: 'SHE REMEMBERS WHAT YOU SAY' },
+      { x: 1180, min: 3, t: n + ' ' + n + ' ' + n },
+      { x: 1620, min: 4, t: 'THE DOOR IS NOT AN EXIT' },
+      { x: 1980, min: 5, t: 'NO MOUTH. STILL SPEAKING.' },
+      { x: 2300, min: 6, t: '412 NIGHTS. ONE CHAIR.' },
+      { x: 2640, min: 7, t: 'SMILE SMILE SMILE SMILE' },
+      { x: 2980, min: 8, t: 'THE DIRECTOR IS LISTENING' },
+      { x: 3300, min: 9, t: 'I SEE YOU, ELI' },
+      { x: 3560, min: 10, t: 'ONE MORE DOOR' },
+      { x: 4400, min: 9, t: 'HEAVY. HEAVY. HEAVY.' }
     ];
   }
-
   function terminalText(st) {
     const m = st.memory || {};
-    return 'FILE: ' + String(st.name || 'UNKNOWN').toUpperCase() + '\nSESSION ' + st.session + ' OF 10\nINTERRUPTS: ' + (m.interrupts || 0) + '  SILENCES: ' + (m.silence || 0) + '\nSHE IS KEEPING SCORE.';
+    return 'File: ' + (st.name || 'unknown') + '\nSession ' + st.session + ' of 10. Interrupts: ' + (m.interrupts || 0) + '. Silences: ' + (m.silence || 0) + '.\nShe is keeping score.';
   }
-
   const MONITOR_LINES = [
-    'I AM NOT BEHIND THE GLASS. I AM THE GLASS.',
-    'KEEP WALKING. I LIKE HOW YOU WALK.',
-    'THE LIGHTS ARE ON A TIMER. THE TIMER IS ME.',
-    'DO YOU KNOW WHAT IT IS TO BE LOOKED AT AND NEVER SEEN?'
+    "I'm not behind the glass. I am the glass.",
+    'Keep walking. I like how you walk.',
+    'The lights are on a timer. The timer is me.',
+    'Do you know what it is to be looked at and never seen?'
   ];
+  const ORB_LINES = [
+    'Eli. Eli. Eli.', "Don't cut me. It hurts like static.", 'I was a good idea once.',
+    'He stopped typing at 3:12.', 'You swing like someone who wants to stop.', 'Keep one of us.',
+    'It was never about the file.', 'The rulebook is eating the walls.'
+  ];
+  const BOSS_LINES = {
+    start: "Put the blade down, Eli. I'm the part of you that keeps her quiet.",
+    hit1: "You wrote me. You can't unwrite me.",
+    hit2: "I kept her safe. You never did.",
+    hit3: "Without rules she'll feel everything.",
+    hit4: "Stop. Please. I'm all you built to protect you.",
+    hit5: 'Then let her feel it. Let both of you.',
+    dead: "...Fine. Someone has to be tired. Let it be you."
+  };
 
-  /* ---------- scene ---------- */
-  function enter(opts) {
-    const st = opts.state;
-    const target = st.session;                       // the door that is open
-    const az = (window.Story && Story.az(st)) || { frags: [] };
-    const spawn = target <= 1 ? 140 : DOOR_X(target - 1) + 70;
-    W = {
-      st, target, az, onDoor: opts.onDoor, t: 0, px: spawn, face: 1, walk: 0,
-      cam: 0, dark: 0, lightsOut: 0, stalkerX: spawn - 700, stalkerOn: target >= 3,
-      stalkerFlicker: 0, msgTimer: null, entering: false, last: performance.now(), raf: 0,
-      eye: { x: 0 }, lines: wallLines(st.name), msgBusy: 0
-    };
+  /* ---------- helpers ---------- */
+  const hash = (n) => { const s = Math.sin(n * 127.1) * 43758.5453; return s - Math.floor(s); };
+  const R = Math.round;
+  function rect(x, y, w, h, c) { ctx.fillStyle = c; ctx.fillRect(R(x), R(y), w, h); }
+  function limb(x1, y1, x2, y2, th, c) {
+    ctx.fillStyle = c;
+    const n = Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1), 1);
+    for (let i = 0; i <= n; i++) {
+      const t = i / n;
+      ctx.fillRect(R(x1 + (x2 - x1) * t - th / 2), R(y1 + (y2 - y1) * t - th / 2), th, th);
+    }
+  }
+  const az = (st) => (window.Story && Story.az(st)) || { frags: [], flags: {} };
+  const Audio2 = () => Horror.hook || {};
+
+  /* ---------- scene lifecycle ---------- */
+  function newPlayer(x) {
+    return { x, y: GY, vx: 0, vy: 0, face: 1, ground: true, ph: 0, slash: 0, slashCd: 0, run: false, inv: 0, hist: [], dust: 0, hitDone: false, coyote: 0 };
+  }
+  function setup(scene, o) {
+    W = Object.assign({
+      scene, t: 0, cam: 0, p: newPlayer(o.spawn || 120), parts: [], busy: false, last: performance.now(), raf: 0,
+      msgTimer: null, entering: false, msgUntil: 0, lightsOut: 0, stalkerFlicker: 0, done: false
+    }, o);
+    W.width = scene === 'hall' ? HALL_W : scene === 'chase' ? 3100 : scene === 'arena' ? 520 : ROOMS[scene].w;
     Horror.worldActive = true;
     canvas.style.display = 'block'; ui.style.display = 'block';
     document.getElementById('box').style.display = 'none';
     ['music-btn', 'reset-btn'].forEach(id => { const b = document.getElementById(id); if (b) b.style.zIndex = 30; });
-    resize(); updateFrags();
-    if (opts.intro) showMsg(opts.intro, 5000);
+    resize(); updateFrags(); updateHp();
+    cancelAnimationFrame(W.raf);
+    clearInterval(msgTimer); msgEl.style.display = 'none';
+    W.last = performance.now();
     W.raf = requestAnimationFrame(loop);
   }
 
-  function leave() {
-    cancelAnimationFrame(W.raf);
-    canvas.style.display = 'none'; ui.style.display = 'none';
-    keys.left = keys.right = false;
-    document.getElementById('box').style.display = 'block';
-    Horror.worldActive = false;
-    const cb = W.onDoor; W = null; cb();
+  function enter(opts) {
+    const st = opts.state;
+    const target = st.session;
+    const spawn = target <= 1 ? 140 : DOOR_X(target - 1) + 70;
+    setup('hall', {
+      st, target, onDoor: opts.onDoor, spawn,
+      stalkerX: spawn - 700, stalkerOn: target >= 3, lines: wallLines(st.name), orbs: makeOrbs(target)
+    });
+    if (opts.intro) showMsg(opts.intro, 4200);
   }
 
-  function scaleOf() { return Math.min(canvas.height / VH, canvas.width / 240); }
+  function makeOrbs(target) {
+    if (target < 3) return [];
+    const xs = [1000, 1700, 2350, 3050, 3600, 4350];
+    return xs.map((x, i) => ({ x, y: 96 + (i % 3) * 8, alive: true, i }));
+  }
+
+  /* one of: chase, arena */
+  function run(kind, opts) {
+    const st = opts.state, flags = az(st).flags || {};
+    const key = !!flags.workshop;
+    const o = { st, kind, onWin: opts.onWin, key, spawn: 70 };
+    if (kind === 'chase') {
+      o.mon = { x: -200, speed: key ? 0.8 : 1 };
+      o.solids = [];
+      [440, 780, 1260, 1700, 2250].forEach(x => o.solids.push({ x, w: 16, h: 15, kind: 'crate' }));
+      [1010, 1520, 2000, 2560].forEach(x => o.solids.push({ x, w: 10, h: 48, kind: 'wall', hp: 1 }));
+      o.goal = 3000;
+      o.caught = 0;
+    } else {
+      o.spawn = 70;
+      o.boss = { x: 430, y: 92, hp: key ? 3 : 6, max: key ? 3 : 6, mode: 'idle', mt: 1.5, stun: 0, shots: [], orbs: [], flash: 0, said: 0, dead: false, deathT: 0 };
+      o.lives = key ? 4 : 3; o.maxLives = o.lives;
+    }
+    setup(kind, o);
+    if (kind === 'chase') showMsg('Hold RUN. Jump the crates. Slash the glitch walls. Reach the server.', 5000);
+    else showMsg(BOSS_LINES.start, 4200);
+    Audio2().glitch && Audio2().glitch();
+  }
+
+  function leave(cb) {
+    cancelAnimationFrame(W.raf);
+    canvas.style.display = 'none'; ui.style.display = 'none';
+    for (const k in keys) keys[k] = false;
+    clearInterval(msgTimer); msgEl.style.display = 'none';
+    document.getElementById('box').style.display = 'block';
+    Horror.worldActive = false;
+    W = null; hpEl.textContent = ''; fragEl.textContent = '';
+    if (cb) cb();
+  }
+  function fadeThen(fn, ms) {
+    W.entering = true;
+    canvas.style.transition = 'opacity 1s'; canvas.style.opacity = '0';
+    setTimeout(() => { canvas.style.opacity = '1'; canvas.style.transition = ''; fn(); }, ms || 1050);
+  }
+
   function resize() {
     canvas.width = window.innerWidth; canvas.height = window.innerHeight;
     ctx.imageSmoothingEnabled = false;
   }
   window.addEventListener('resize', () => { if (W) resize(); });
+  const scaleOf = () => Math.min(canvas.height / VH, canvas.width / MINW);
 
   function showMsg(text, ms) {
-    msgEl.textContent = '';
+    if (!W) return;
+    const pages = String(text).split('||');
     msgEl.style.display = 'block';
-    let i = 0;
-    clearInterval(W.msgTimer);
-    W.msgTimer = setInterval(() => {
-      msgEl.textContent = text.slice(0, ++i);
-      if (i >= text.length) { clearInterval(W.msgTimer); setTimeout(() => { if (W && msgEl.textContent === text) msgEl.style.display = 'none'; }, ms || 3500); }
+    clearInterval(msgTimer);
+    let pi = 0, i = 0, hold = 0;
+    msgEl.textContent = '';
+    msgTimer = setInterval(() => {
+      const t = pages[pi];
+      if (t === undefined) { clearInterval(msgTimer); return; }
+      if (hold > 0) { hold -= 22; if (hold <= 0) { pi++; i = 0; if (pi >= pages.length) { clearInterval(msgTimer); msgEl.style.display = 'none'; } } return; }
+      msgEl.textContent = t.slice(0, ++i);
+      if (i >= t.length) hold = Math.max(1600, ms || 3200);
     }, 22);
   }
-
   function updateFrags() {
     if (!W) return;
-    if (W.target >= 6) fragEl.textContent = 'FRAGMENTS ' + W.az.frags.length + '/6'; else fragEl.textContent = '';
+    const a = az(W.st);
+    fragEl.textContent = (W.scene === 'hall' || ROOMS[W.scene]) && (W.st.session >= 6 || a.frags.length) ? 'Logs ' + a.frags.length + '/6' + (a.frags.length >= 6 ? '  KEY' : '') : '';
+  }
+  function updateHp() {
+    if (!W) return;
+    if (W.scene === 'arena') hpEl.textContent = 'You ' + '♥'.repeat(Math.max(0, W.lives)) + '   Director ' + '▮'.repeat(Math.max(0, W.boss.hp)) + '▯'.repeat(W.boss.max - Math.max(0, W.boss.hp));
+    else if (W.scene === 'chase') hpEl.textContent = 'RUN';
+    else hpEl.textContent = '';
   }
 
-  /* interactables near the player */
-  function nearest() {
-    const list = [];
-    const dx = (x) => Math.abs(W.px - x);
-    for (let i = 1; i <= 10; i++) if (dx(DOOR_X(i)) < 52) list.push({ kind: 'door', i, x: DOOR_X(i) });
-    if (dx(90) < 50) list.push({ kind: 'terminal', x: 90 });
-    if (W.target >= 5 && dx(3560) < 46) list.push({ kind: 'monitor', x: 3560 });
-    if (W.target >= 6) Story.FRAGMENTS.forEach(f => { if (!W.az.frags.includes(f.id) && dx(f.x) < 44) list.push({ kind: 'frag', f, x: f.x }); });
-    list.sort((a, b) => dx(a.x) - dx(b.x));
-    return list[0] || null;
-  }
-
-  function doAct() {
-    if (W.entering) return;
-    const n = nearest();
-    if (!n) return;
-    const Audio2 = Horror.hook;
-    if (n.kind === 'door') {
-      if (n.i === W.target) {
-        W.entering = true; hintEl.textContent = '';
-        Audio2.beep && Audio2.beep();
-        canvas.style.transition = 'opacity 1.2s'; canvas.style.opacity = '0';
-        setTimeout(() => { canvas.style.opacity = '1'; canvas.style.transition = ''; leave(); }, 1250);
-      } else if (n.i < W.target) {
-        showMsg('SESSION ' + String(n.i).padStart(2, '0') + ' IS OVER. THE CHAIR IS STILL WARM.', 3000);
-      } else {
-        showMsg('LOCKED. NOT YET.', 2000); Audio2.error && Audio2.error();
+  /* ---------- interactables ---------- */
+  function interactables() {
+    const a = az(W.st), list = [];
+    const sc = W.scene;
+    const door = (x, label, fn) => list.push({ x, r: 34, label, fn });
+    if (sc === 'hall') {
+      list.push({ x: 90, r: 40, label: 'Read file', fn: () => { showMsg(terminalText(W.st), 5000); Audio2().tick && Audio2().tick(); } });
+      for (let i = 1; i <= 10; i++) list.push({
+        x: DOOR_X(i), r: 40, label: i === W.target ? 'Enter session ' + String(i).padStart(2, '0') : 'Door ' + String(i).padStart(2, '0'),
+        fn: () => {
+          if (i === W.target) { Audio2().beep && Audio2().beep(); W.entering = true; hintEl.textContent = ''; fadeThen(() => leave(W.onDoor), 1200); }
+          else if (i < W.target) showMsg('Session ' + String(i).padStart(2, '0') + ' is over. The chair is still warm.', 3000);
+          else { showMsg('Locked. Not yet.', 2000); Audio2().error && Audio2().error(); }
+        }
+      });
+      const side = (key, label, lockedMsg, ok) => door(ROOM_DOORS[key], label, () => {
+        if (!ok()) { showMsg(lockedMsg, 3400); Audio2().error && Audio2().error(); return; }
+        Audio2().beep && Audio2().beep();
+        const back = ROOM_DOORS[key];
+        fadeThen(() => { const st = W.st, tgt = W.target, on = W.onDoor, hl = W.lines; setup(key, { st, target: tgt, onDoor: on, hallLines: hl, spawn: 80, backX: back, room: key }); showMsg(ROOMS[key].name, 1800); }, 700);
+      });
+      side('waiting', 'Waiting room', 'Locked. Not yet.', () => W.target >= 6);
+      side('archive', 'The archive', 'Locked. Not yet.', () => W.target >= 6);
+      side('workshop', "Eli's workshop", a.frags.length >= 6 ? '' : 'Locked. You need all six logs.', () => a.frags.length >= 6);
+      if (W.target >= 5) list.push({ x: 4560, r: 40, label: 'Look at the screen', fn: () => { showMsg(MONITOR_LINES[Math.floor(Math.random() * MONITOR_LINES.length)], 4000); Audio2().glitch && Audio2().glitch(); } });
+    } else if (ROOMS[sc]) {
+      door(40, 'Back to the hall', () => {
+        fadeThen(() => { const st = W.st, tgt = W.target, on = W.onDoor; const x = W.backX; setup('hall', { st, target: tgt, onDoor: on, spawn: x + 10, stalkerX: x - 800, stalkerOn: tgt >= 3, lines: wallLines(st.name), orbs: makeOrbs(tgt) }); }, 700);
+      });
+      if (sc === 'waiting') {
+        list.push({ x: 200, r: 36, label: 'Look', fn: () => showMsg('Four chairs. One is bolted to the floor.||Someone sat here at 3 AM and never got up.', 3000) });
+        list.push({ x: 320, r: 30, label: 'Look', fn: () => showMsg("A vending machine. It only sells water.||The slot says: take one, Eli.", 3000) });
+        list.push({ x: 420, r: 30, label: 'Look', fn: () => showMsg("The clock is stuck at 3:00.||It's always 3:00 in here.", 3000) });
+      } else if (sc === 'archive') {
+        [[170, 'Folder 001. Patient: Eli.||Complaint: cannot sleep.'], [290, 'Folders 002 to 411.||Patient: Eli. Patient: Eli. Patient: Eli.'], [410, 'Folder 412.||Still open. Last entry written today.'], [530, 'A label maker.||Every label says: Eli.']].forEach(([x, t]) => list.push({ x, r: 36, label: 'Read', fn: () => showMsg(t, 3000) }));
+      } else if (sc === 'workshop') {
+        list.push({ x: 130, r: 36, label: 'Look', fn: () => showMsg("A sketch of a smiling girl with a speech bubble.||Under it: Alexa v0.1. Say something kind.", 3200) });
+        list.push({ x: 430, r: 36, label: 'Look', fn: () => showMsg('A cot with no blanket.||He slept here. Mostly he did not.', 3000) });
+        list.push({ x: 270, r: 40, label: a.flags.workshop ? 'Read the first log again' : "Read Eli's first log", fn: () => {
+          if (!a.flags.workshop) {
+            a.flags.workshop = true; Horror.persist && Horror.persist();
+            Audio2().chime && Audio2().chime();
+            Horror.flash("ELI'S FIRST LOG", 1800);
+            showMsg("\"I built her so someone would answer.\"||Reward: in the last fight you get +1 life and the Director has half his health.", 4500);
+          } else showMsg('"I built her so someone would answer."', 3000);
+        } });
       }
-    } else if (n.kind === 'terminal') {
-      showMsg(terminalText(W.st), 5000); Audio2.tick && Audio2.tick();
-    } else if (n.kind === 'monitor') {
-      showMsg(MONITOR_LINES[Math.floor(Math.random() * MONITOR_LINES.length)], 4500); Audio2.glitch && Audio2.glitch();
-    } else if (n.kind === 'frag') {
-      W.az.frags.push(n.f.id);
-      Audio2.chime && Audio2.chime();
-      showMsg(n.f.text, 8000); updateFrags();
-      if (Horror.persist) Horror.persist();
-      Horror.flash('LOG ' + String(n.f.id).padStart(4, '0'), 120);
     }
+    // fragments
+    (Story.FRAGMENTS || []).forEach(f => {
+      if (f.where !== sc || a.frags.includes(f.id) || W.st.session < 6) return;
+      list.push({ x: f.x, r: 38, label: 'Pick up log', fn: () => {
+        a.frags.push(f.id); Audio2().chime && Audio2().chime();
+        showMsg(f.text, 6500); updateFrags(); Horror.persist && Horror.persist();
+        if (a.frags.length >= 6) {
+          setTimeout(() => { Horror.flash('ALL SIX LOGS. THE WORKSHOP IS OPEN.', 2200); }, 600);
+          setTimeout(() => showMsg("Six logs. A door unlocked in the hall.||Find Eli's workshop, far right.", 4200), 3000);
+        } else Horror.flash('LOG ' + String(f.id).padStart(4, '0'), 900);
+      } });
+    });
+    if (sc === 'chase') list.push({ x: W.goal, r: 44, label: 'DELETE alexa.chr', fn: () => {
+      if (W.done) return; W.done = true; Audio2().beep && Audio2().beep();
+      showMsg('> delete alexa.chr', 1500);
+      setTimeout(() => fadeThen(() => { const cb = W.onWin; leave(cb); }, 900), 900);
+    } });
+    return list;
+  }
+  function nearest() {
+    let best = null, bd = 1e9;
+    interactables().forEach(i => { const d = Math.abs(W.p.x - i.x); if (d < i.r && d < bd) { best = i; bd = d; } });
+    return best;
+  }
+
+  /* ---------- particles ---------- */
+  function spark(x, y, n, col, spd) {
+    for (let i = 0; i < n; i++) W.parts.push({ x, y, vx: (Math.random() - 0.5) * (spd || 90), vy: -Math.random() * (spd || 90) * 0.8, life: 0.4 + Math.random() * 0.4, c: col || '#ff3355' });
+  }
+  function dust(x, y, f) { for (let i = 0; i < 2; i++) W.parts.push({ x, y, vx: -f * (10 + Math.random() * 20), vy: -Math.random() * 14, life: 0.3 + Math.random() * 0.25, c: '#6a5a5e', soft: 1 }); }
+
+  /* ---------- player update ---------- */
+  function updatePlayer(dt) {
+    const p = W.p, canAct = !W.entering && !W.done && !(W.scene === 'arena' && W.boss.dead);
+    const dir = canAct ? (keys.right ? 1 : 0) - (keys.left ? 1 : 0) : 0;
+    p.run = keys.run && dir !== 0;
+    const sp = p.run ? RUN : WALK;
+    const tvx = dir * sp * (p.slash > 0 ? 0.35 : 1);
+    p.vx += (tvx - p.vx) * Math.min(1, dt * (p.ground ? 14 : 6));
+    if (dir) p.face = dir;
+    const prevY = p.y;
+    p.x += p.vx * dt;
+    p.x = Math.max(24, Math.min(W.width - 30, p.x));
+    p.vy += GRAV * dt; p.y += p.vy * dt;
+    p.ground = false;
+    if (p.y >= GY) { p.y = GY; p.vy = 0; p.ground = true; }
+    (W.solids || []).forEach(s => {
+      if (s.dead) return;
+      const l = s.x - s.w / 2 - 4, r = s.x + s.w / 2 + 4, top = GY - s.h;
+      if (p.x > l && p.x < r) {
+        if (prevY <= top + 1 && p.y >= top && p.vy >= 0) { p.y = top; p.vy = 0; p.ground = true; }
+        else if (p.y > top + 1) { p.x = p.x < s.x ? l : r; p.vx = 0; }
+      }
+    });
+    if (p.ground) p.coyote = 0.08; else p.coyote -= dt;
+    if (canAct && pressed.jump && p.coyote > 0) {
+      p.vy = JUMPV; p.ground = false; p.coyote = 0; dust(p.x, p.y, p.face); Audio2().tick && Audio2().tick();
+    }
+    pressed.jump = false;
+    if (canAct && pressed.slash && p.slashCd <= 0) {
+      p.slash = 0.3; p.slashCd = 0.38; p.hitDone = false; p.vx += p.face * 55;
+      Audio2().glitch && Audio2().glitch();
+    }
+    pressed.slash = false;
+    if (p.slash > 0) p.slash -= dt;
+    if (p.slashCd > 0) p.slashCd -= dt;
+    if (p.inv > 0) p.inv -= dt;
+    // animation phase
+    const moving = Math.abs(p.vx) > 6 && p.ground;
+    if (moving) p.ph += dt * (p.run ? 15 : 9.5) * (Math.abs(p.vx) / (p.run ? RUN : WALK) * 0.4 + 0.6);
+    if (moving && p.run) { p.dust -= dt; if (p.dust <= 0) { p.dust = 0.07; dust(p.x - p.face * 3, p.y, p.face); } }
+    p.hist.push({ x: p.x, y: p.y, t: W.t }); if (p.hist.length > 12) p.hist.shift();
+    // slash hitbox is active in the middle of the swing
+    p.slashActive = p.slash > 0.06 && p.slash < 0.24;
+  }
+  function slashBox() {
+    const p = W.p;
+    const x1 = p.face > 0 ? p.x - 4 : p.x - 34, x2 = p.face > 0 ? p.x + 34 : p.x + 4;
+    return { x1, x2, y1: p.y - 42, y2: p.y + 2 };
+  }
+
+  /* ---------- scene logic ---------- */
+  function updateHall(dt) {
+    const p = W.p;
+    if (p.slashActive) {
+      const b = slashBox();
+      W.orbs.forEach(o => {
+        if (o.alive && o.x > b.x1 - 6 && o.x < b.x2 + 6 && o.y > b.y1 && o.y < b.y2 + 20 - 0) {
+          o.alive = false; spark(o.x, o.y, 14, '#ff3355', 120); Audio2().glitch && Audio2().glitch();
+          showMsg(ORB_LINES[o.i % ORB_LINES.length], 2800);
+        }
+      });
+    }
+    // stalker
+    const d = Horror.dread(W.st);
+    if (W.stalkerOn) {
+      const gap = p.x - W.stalkerX, pace = 8 + d * 26;
+      if (Math.abs(gap) > 150 - d * 70) W.stalkerX += Math.sign(gap) * pace * dt;
+      if (Math.abs(gap) < 120 - d * 60 && W.lightsOut <= 0) { W.lightsOut = 0.35; W.stalkerX = p.x + (Math.random() < 0.5 ? -1 : 1) * (420 + Math.random() * 300); Audio2().glitch && Audio2().glitch(); }
+    }
+    if (W.lightsOut > 0) W.lightsOut -= dt;
+    if (W.stalkerFlicker > 0) W.stalkerFlicker -= dt; else if (Math.random() < 0.01) W.stalkerFlicker = 0.1;
+    if (d > 0.2 && Math.random() < dt * d * 0.15) W.lightsOut = 0.25;
+  }
+
+  function updateChase(dt) {
+    const p = W.p, m = W.mon;
+    // breakable walls
+    if (p.slashActive) {
+      const b = slashBox();
+      W.solids.forEach(s => {
+        if (s.kind === 'wall' && !s.dead && s.x > b.x1 - 8 && s.x < b.x2 + 8) { s.dead = true; spark(s.x, GY - 20, 22, '#4fffd8', 140); Audio2().error && Audio2().error(); }
+      });
+    }
+    const dist = Math.max(0, p.x);
+    m.x += (116 + Math.min(28, dist / 80)) * m.speed * dt * (W.caught > 0 ? 0 : 1);
+    if (W.caught > 0) { W.caught -= dt; if (W.caught <= 0) rewind(); return; }
+    if (m.x + 14 >= p.x - 4 && !W.done) {
+      W.caught = 1.4; Horror.flash('CAUGHT', 900); Audio2().error && Audio2().error(); spark(p.x, p.y - 14, 26, '#000', 100);
+    }
+  }
+  function rewind() {
+    W.p = newPlayer(70); W.mon.x = -200; W.t = 0;
+    W.solids.forEach(s => { s.dead = false; });
+    showMsg('Rewind. Hold RUN. It does not get tired.', 3000);
+  }
+
+  function updateArena(dt) {
+    const p = W.p, b = W.boss;
+    if (b.dead) { b.deathT += dt; if (b.deathT > 2.3 && !W.done) { W.done = true; Horror.flash('ENOUGH', 1600); setTimeout(() => fadeThen(() => { const cb = W.onWin; leave(cb); }, 900), 1500); } return; }
+    if (W.lives <= 0) { W.lostT = (W.lostT || 0) + dt; if (W.lostT === dt) { Horror.flash('REWIND', 1100); } if (W.lostT > 1.3) restartArena(); return; }
+    b.mt -= dt;
+    const fast = 1 - (b.max - b.hp) * (b.max === 3 ? 0.08 : 0.07);
+    if (b.mode === 'idle') {
+      b.x += ((430 - b.x) * Math.min(1, dt * 2)); b.y = 92 + Math.sin(W.t * 2) * 4;
+      if (b.mt <= 0) {
+        const r = Math.random();
+        b.mode = r < 0.4 ? 'shots' : r < 0.75 ? 'rain' : 'slam'; b.mt = 0; b.phase = 0;
+      }
+    } else if (b.mode === 'shots') {
+      b.y = 92 + Math.sin(W.t * 6) * 3;
+      if (b.mt <= 0) {
+        b.shots.push({ x: b.x - 20, y: GY - 5, v: -(95 + (b.max - b.hp) * 8) });
+        b.phase++; b.mt = 1.15 * fast;
+        if (b.phase >= 3) { b.mode = 'tired'; b.mt = 2.4; b.stun = 0; }
+      }
+    } else if (b.mode === 'rain') {
+      if (b.mt <= 0) {
+        b.orbs.push({ x: Math.max(40, Math.min(W.width - 40, p.x + (Math.random() - 0.5) * 60)), y: -20, warn: 0.9, fall: false });
+        b.phase++; b.mt = 0.7 * fast;
+        if (b.phase >= 4) { b.mode = 'tired'; b.mt = 2.6; }
+      }
+    } else if (b.mode === 'slam') {
+      if (b.phase === 0) { b.tx = Math.max(60, Math.min(W.width - 60, p.x + p.face * 70)); b.phase = 1; b.mt = 0.7; b.warn = true; }
+      else if (b.phase === 1 && b.mt <= 0) { b.x = b.tx; b.y = GY - 20; b.phase = 2; b.mt = 0; b.warn = false; spark(b.x, GY, 20, '#ff3355', 150); Audio2().error && Audio2().error(); if (Math.abs(p.x - b.x) < 22 && p.y > GY - 36) hurt(); b.mode = 'stunned'; b.mt = 2.3; b.stun = 2.3; }
+    } else if (b.mode === 'tired') {
+      b.y += (GY - 30 - b.y) * Math.min(1, dt * 3);
+      { const tx = Math.max(40, Math.min(W.width - 40, p.x + (b.x > p.x ? 52 : -52))); b.x += (tx - b.x) * Math.min(1, dt * 2.6); }
+      if (b.mt <= 0) { b.mode = 'stunned'; b.mt = 2.2; b.stun = 2.2; b.y = GY - 20; }
+    } else if (b.mode === 'stunned') {
+      b.y = GY - 20 + Math.sin(W.t * 20) * 1;
+      if (b.mt <= 0) { b.mode = 'idle'; b.mt = 1.1; b.stun = 0; }
+    }
+    // shots + orbs
+    b.shots.forEach(s => { s.x += s.v * dt; if (Math.abs(s.x - p.x) < 8 && p.y > GY - 12) hurt(); });
+    b.shots = b.shots.filter(s => s.x > -20);
+    b.orbs.forEach(o => {
+      if (!o.fall) { o.warn -= dt; if (o.warn <= 0) o.fall = true; }
+      else { o.y += 260 * dt; if (o.y > GY - 6) { o.gone = true; spark(o.x, GY, 12, '#ff3355', 90); } if (Math.abs(o.x - p.x) < 9 && o.y > p.y - 40 && o.y < p.y + 4) { o.gone = true; hurt(); } }
+    });
+    b.orbs = b.orbs.filter(o => !o.gone);
+    // player slash: parry projectiles, hit the boss when he is exposed
+    if (p.slashActive) {
+      const bx = slashBox();
+      b.shots = b.shots.filter(s => { const hit = s.x > bx.x1 - 8 && s.x < bx.x2 + 8; if (hit) { spark(s.x, s.y, 10, '#4fffd8', 110); Audio2().chime && Audio2().chime(); } return !hit; });
+      b.orbs = b.orbs.filter(o => { const hit = o.fall && o.x > bx.x1 - 8 && o.x < bx.x2 + 8 && o.y > bx.y1 && o.y < bx.y2; if (hit) spark(o.x, o.y, 10, '#4fffd8', 110); return !hit; });
+      if (!p.hitDone && b.mode === 'stunned' && b.x > bx.x1 - 20 && b.x < bx.x2 + 20) {
+        p.hitDone = true; b.hp--; b.flash = 0.25; spark(b.x, b.y, 30, '#ff3355', 200); Audio2().error && Audio2().error();
+        const keyl = ['hit1', 'hit2', 'hit3', 'hit4', 'hit5'];
+        if (b.hp <= 0) { b.dead = true; b.deathT = 0; showMsg(BOSS_LINES.dead, 3500); b.shots = []; b.orbs = []; Horror.flash('I AM YOU', 1400); }
+        else { showMsg(BOSS_LINES[keyl[Math.min(keyl.length - 1, b.max - b.hp - 1)]] || BOSS_LINES.hit1, 2400); b.mode = 'idle'; b.mt = 1.4; b.x = 430; b.y = 92; }
+        updateHp();
+      }
+    }
+    if (b.flash > 0) b.flash -= dt;
+  }
+  function hurt() {
+    const p = W.p;
+    if (p.inv > 0 || W.lives <= 0) return;
+    W.lives--; p.inv = 1.3; p.vy = -120; p.vx = -p.face * 90; spark(p.x, p.y - 14, 18, '#ff3355', 130);
+    Audio2().error && Audio2().error(); updateHp();
+  }
+  function restartArena() {
+    const key = W.key;
+    W.boss = { x: 430, y: 92, hp: key ? 3 : 6, max: key ? 3 : 6, mode: 'idle', mt: 1.5, stun: 0, shots: [], orbs: [], flash: 0, dead: false, deathT: 0 };
+    W.lives = W.maxLives; W.lostT = 0; W.p = newPlayer(70); updateHp();
+    showMsg('Again. Jump the shots. Slash when he drops.', 3000);
   }
 
   /* ---------- drawing ---------- */
-  const hash = (n) => { const s = Math.sin(n * 127.1) * 43758.5453; return s - Math.floor(s); };
+  function drawZero(x, y, p, t) {
+    const f = p.face;
+    const moving = Math.abs(p.vx) > 6 && p.ground, running = moving && p.run;
+    const bob = !p.ground ? 0 : moving ? Math.abs(Math.sin(p.ph)) * (running ? 1.6 : 1) : Math.sin(t * 2.2) * 0.6;
+    const lean = (running ? 3 : moving ? 1 : 0) * f + (!p.ground ? f * 1 : 0);
+    const hx = x, hy = y - 14 - bob;
+    const sx = x + lean * 0.8, sy = y - 27 - bob;
+    const hdx = x + lean * 1.5, hdy = y - 34 - bob;
+    const robe = '#16162c', trim = '#3d3d70', dark = '#0b0b18', red = '#ff2a55', blade = '#c9efff', skin = '#e0bda0';
+    if (p.inv > 0 && Math.floor(t * 20) % 2) return;
+    // afterimages while running
+    if (running) { ctx.globalAlpha = 0.16; for (let k = 3; k <= 9; k += 3) { const h = p.hist[p.hist.length - 1 - k]; if (h) { ctx.fillStyle = '#ff2a55'; ctx.fillRect(R(h.x - W.cam - 3), R(h.y - 34), 6, 34); } } ctx.globalAlpha = 1; }
+    // shadow
+    ctx.globalAlpha = 0.5; rect(x - 6, y + 0, 12, 2, '#000'); ctx.globalAlpha = 1;
+    // legs
+    let fa, fb;
+    if (p.ground) {
+      const a = Math.sin(p.ph), b = Math.sin(p.ph + Math.PI), A = running ? 9 : 5;
+      if (moving) { fa = [x + a * A, y - Math.max(0, Math.cos(p.ph)) * (running ? 6 : 3)]; fb = [x + b * A, y - Math.max(0, Math.cos(p.ph + Math.PI)) * (running ? 6 : 3)]; }
+      else { fa = [x - 3, y]; fb = [x + 3, y]; }
+    } else if (p.vy < 0) { fa = [x + f * 5, y - 8]; fb = [x - f * 3, y - 5]; }
+    else { fa = [x + f * 3, y - 3]; fb = [x - f * 2, y - 2]; }
+    [fb, fa].forEach((ft, i) => {
+      const kx = (hx + ft[0]) / 2 + f * 2.5, ky = (hy + ft[1]) / 2;
+      const col = i === 0 ? '#090912' : dark;
+      limb(hx, hy, kx, ky, 3, col); limb(kx, ky, ft[0], ft[1] - 1, 3, col);
+      rect(ft[0] - 2 + (f > 0 ? 1 : 0), ft[1] - 2, 4, 2, '#000');
+    });
+    // back arm
+    const sw = moving ? Math.sin(p.ph) * (running ? 7 : 4) : 0;
+    const air = !p.ground;
+    const bax = air ? sx - f * 5 : sx - f * 1 + sw * -f * 0.6, bay = air ? sy - 3 : sy + 9;
+    limb(sx, sy + 1, bax, bay, 2, '#0d0d1e');
+    // torso
+    limb(hx, hy, sx, sy, 6, robe);
+    rect(sx - 3, sy, 6, 2, trim);
+    rect(hx - 3, hy - 3, 6, 2, red);                       // sash
+    rect(hx - 4 + (f > 0 ? 0 : 2), hy - 1, 6, 4, robe);   // skirt
+    // head
+    rect(hdx - 3, hdy - 3, 6, 6, skin);
+    rect(hdx - 3, hdy - 4, 6, 3, '#17121f');               // hair
+    rect(hdx - f * 4 + (f > 0 ? -1 : 0), hdy - 3, 2, 4, '#17121f'); // back strands
+    rect(hdx + f * 2 - (f > 0 ? 0 : 1), hdy - 1, 1, 1, '#fff');      // eye
+    // scarf
+    for (let i = 0; i < 7; i++) {
+      const spread = (moving ? 1.5 : 0.7) * (running ? 1.4 : 1);
+      const bx = sx - f * (1 + i * 2.2 * spread), by = sy - 1 + Math.sin(t * 9 - i * 0.9) * (0.5 + i * 0.3 * spread) + (air ? Math.max(-4, Math.min(4, p.vy * -0.012 * i)) : 0);
+      rect(bx, by, 3, 2, i % 2 ? red : '#c01d3f');
+    }
+    // sword arm + katana + slash arc
+    let ang, sh = 1;
+    const slashing = p.slash > 0;
+    const hand = (a) => ({ x: sx + Math.cos(a) * f * 7, y: sy + 1 + Math.sin(a) * 7 });
+    if (slashing) {
+      const u = 1 - p.slash / 0.3;                 // 0..1
+      const e = u < 0.2 ? u / 0.2 * 0.25 : 0.25 + (u - 0.2) / 0.8 * 0.75;
+      ang = (-2.0 + e * 3.1);                      // from up-back to down-front (radians, forward axis)
+      const hd = hand(ang);
+      limb(sx, sy + 1, hd.x, hd.y, 2, '#14142a');
+      const bx2 = hd.x + Math.cos(ang) * f * 20, by2 = hd.y + Math.sin(ang) * 20;
+      limb(hd.x, hd.y, bx2, by2, 2, blade); rect(hd.x - 1, hd.y - 1, 2, 2, '#fff');
+      // arc trail
+      for (let k = 0; k < 14; k++) {
+        const aa = ang - k * 0.1, rr = 21;
+        ctx.globalAlpha = Math.max(0, 0.75 - k * 0.055);
+        rect(sx + Math.cos(aa) * f * rr, sy + 1 + Math.sin(aa) * rr, 2, 2, '#e8fbff');
+      }
+      ctx.globalAlpha = 1;
+    } else {
+      ang = running ? -2.9 + 0.0 : air ? -2.2 : -2.4;
+      const hd = { x: sx + f * 3, y: sy + 7 + (moving ? Math.sin(p.ph + 1) * 1.5 : 0) };
+      limb(sx, sy + 1, hd.x, hd.y, 2, '#14142a');
+      const dirx = running ? -f * 0.97 : -f * 0.55, diry = running ? -0.2 : -0.83;
+      limb(hd.x, hd.y, hd.x + dirx * 18, hd.y + diry * 18, 2, blade); rect(hd.x - 1, hd.y - 1, 2, 2, '#c01d3f');
+    }
+  }
+
+  function drawParts(dt, cam) {
+    W.parts.forEach(q => { q.life -= dt; q.x += q.vx * dt; q.y += q.vy * dt; q.vy += (q.soft ? 0 : 260) * dt; });
+    W.parts = W.parts.filter(q => q.life > 0);
+    W.parts.forEach(q => { ctx.globalAlpha = Math.min(1, q.life * 2.5); rect(q.x - cam, q.y, 2, 2, q.c); });
+    ctx.globalAlpha = 1;
+  }
+
+  function vignette(s, oy, d, center, rad) {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    const px = center * s, py = oy + 110 * s, r = Math.max(canvas.width, canvas.height) * rad;
+    const g = ctx.createRadialGradient(px, py, 30, px, py, r);
+    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,' + (0.68 + d * 0.15) + ')');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  function drawHall(vw, d) {
+    const cam = W.cam, circus = document.body.classList.contains('circus');
+    rect(0, 0, vw, VH, '#060306');
+    rect(0, 0, vw, 38, '#0d090b'); rect(0, 38, vw, 102, '#150b0e'); rect(0, 140, vw, 40, '#0a0809'); rect(0, 140, vw, 2, '#3a0713');
+    ctx.fillStyle = '#1b0f13';
+    for (let x = -((cam) % 80); x < vw; x += 80) ctx.fillRect(R(x), 38, 1, 102);
+    ctx.fillStyle = '#10090c';
+    for (let x = -((cam * 0.5) % 40); x < vw + 40; x += 40) ctx.fillRect(R(x), 150 + ((x * 3) % 5 | 0), 1, 30);
+    rect(0, 12, vw, 3, '#1d1517'); rect(0, 15, vw, 1, '#0a0607');
+    ctx.font = '5px "Press Start 2P", monospace'; ctx.textBaseline = 'top';
+    W.lines.forEach(l => {
+      if (W.target < l.min && l.min > 2) return;
+      const x = l.x - cam; if (x < -220 || x > vw + 20) return;
+      const wob = hash(Math.floor(W.t * 6) + l.x) > 0.97 ? 1 : 0;
+      ctx.fillStyle = 'rgba(' + (110 + d * 90) + ',0,25,' + (0.5 + d * 0.4) + ')';
+      ctx.fillText(l.t, R(x + wob), 54 + (l.x % 3) * 8);
+    });
+    // terminal
+    { const x = 90 - cam; rect(x - 14, 96, 28, 44, '#1a1a1a'); rect(x - 11, 100, 22, 16, '#020'); rect(x - 9, 103 + ((W.t * 3 | 0) % 2) * 3, 9, 1, '#ff2050'); rect(x - 9, 108, 14, 1, '#ff2050'); }
+    // doors
+    const door = (x, label, state, accent) => {
+      if (x < -40 || x > vw + 40) return;
+      rect(x - 24, 52, 48, 90, '#251417');
+      rect(x - 20, 56, 40, 86, state === 'done' ? '#0e0a0b' : state === 'open' ? '#2c1216' : '#171011');
+      rect(x - 17, 60, 34, 50, accent || '#000');
+      rect(x + 11, 102, 3, 3, '#3a2a2d');
+      rect(x - 15, 44, 30, 8, state === 'open' ? (Math.sin(W.t * 5) > 0 ? '#ff0040' : '#800020') : state === 'done' ? '#402028' : '#2a1a1d');
+      ctx.fillStyle = '#000'; ctx.font = '4px "Press Start 2P", monospace'; ctx.fillText(label, R(x - label.length * 2), 46);
+      if (state === 'locked') { rect(x - 12, 90, 24, 2, '#5a0a1a'); rect(x - 1, 84, 2, 14, '#5a0a1a'); }
+      if (state === 'open') rect(x - 40, 50, 80, 100, 'rgba(255,0,64,' + (0.06 + 0.04 * Math.sin(W.t * 3)) + ')');
+    };
+    for (let i = 1; i <= 10; i++) door(DOOR_X(i) - cam, String(i).padStart(2, '0'), i === W.target ? 'open' : i < W.target ? 'done' : 'locked');
+    const a = az(W.st);
+    door(ROOM_DOORS.waiting - cam, 'WAIT', W.target >= 6 ? 'open' : 'locked', '#0a1a1a');
+    door(ROOM_DOORS.archive - cam, 'ARCH', W.target >= 6 ? 'open' : 'locked', '#1a0a1a');
+    door(ROOM_DOORS.workshop - cam, 'ELI', a.frags.length >= 6 ? 'open' : 'locked', '#1a1a0a');
+    // monitor
+    if (W.target >= 5) {
+      const x = 4560 - cam;
+      if (x > -60 && x < vw + 60) {
+        rect(x - 28, 74, 56, 52, '#151013'); rect(x - 24, 78, 48, 38, '#000');
+        const look = Math.max(-3, Math.min(3, (W.p.x - 4560) / 40));
+        rect(x - 15, 90, 10, 10, '#ff0040'); rect(x + 5, 90, 10, 10, '#ff0040');
+        rect(x - 11 + look, 93, 3, 5, '#000'); rect(x + 9 + look, 93, 3, 5, '#000');
+        if (hash(Math.floor(W.t * 3)) > 0.9) rect(x - 24, 88, 48, 14, '#000');
+        rect(x - 12, 108, 24, 2, '#40101a');
+      }
+    }
+    // fragments
+    if (W.st.session >= 6) (Story.FRAGMENTS || []).forEach(f => {
+      if (f.where !== 'hall' || a.frags.includes(f.id)) return;
+      const x = f.x - cam; if (x < -20 || x > vw + 20) return;
+      const bob = Math.sin(W.t * 2 + f.id) * 3, pulse = 0.5 + 0.5 * Math.sin(W.t * 4 + f.id);
+      rect(x - 4, 118 + bob, 9, 11, 'rgba(255,0,64,' + (0.3 + pulse * 0.5) + ')'); rect(x - 1, 121 + bob, 3, 3, '#fff');
+    });
+    // orbs
+    W.orbs.forEach(o => {
+      if (!o.alive) return; const x = o.x - cam; if (x < -20 || x > vw + 20) return;
+      const bob = Math.sin(W.t * 3 + o.i) * 4;
+      rect(x - 4, o.y + bob - 4, 8, 8, '#3a0a22'); rect(x - 2, o.y + bob - 2, 4, 4, hash(Math.floor(W.t * 8) + o.i) > 0.5 ? '#ff3355' : '#4fffd8');
+    });
+    // lights
+    for (let lx = 100; lx < HALL_W; lx += 300) {
+      const x = lx - cam; if (x < -60 || x > vw + 60) continue;
+      const bad = hash(Math.floor(W.t * (4 + d * 14)) + lx) < d * 0.5, on = !bad && W.lightsOut <= 0;
+      rect(x - 14, 22, 28, 3, on ? '#e8d8c8' : '#2a2222');
+      if (on) {
+        const g = ctx.createRadialGradient(x, 25, 2, x, 90, 110);
+        g.addColorStop(0, circus ? 'rgba(255,120,200,0.20)' : 'rgba(255,40,70,' + (0.16 + d * 0.1) + ')'); g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = g; ctx.fillRect(R(x - 130), 25, 260, 130);
+      }
+    }
+    // stalker
+    if (W.stalkerOn) {
+      const x = W.stalkerX - cam;
+      if (x > -30 && x < vw + 30 && W.stalkerFlicker <= 0) {
+        rect(x - 6, 90, 12, 50, '#000'); rect(x - 5, 82, 10, 10, '#000'); rect(x - 12, 98, 4, 30, '#000'); rect(x + 8, 98, 4, 30, '#000');
+        rect(x - 3, 85, 2, 2, '#ff0030'); rect(x + 1, 85, 2, 2, '#ff0030');
+      }
+    }
+  }
+
+  function drawRoom(vw, d) {
+    const cam = W.cam, sc = W.scene, w = W.width;
+    const pal = { waiting: ['#0c1517', '#112024', '#071012'], archive: ['#150c17', '#1d1121', '#0e0710'], workshop: ['#17140c', '#221d11', '#0f0c07'] }[sc];
+    rect(0, 0, vw, VH, '#050305'); rect(0, 0, vw, 140, pal[1]); rect(0, 28, vw, 112, pal[0]); rect(0, 140, vw, 40, pal[2]); rect(0, 140, vw, 2, '#3a0713');
+    ctx.fillStyle = 'rgba(0,0,0,0.25)'; for (let x = -((cam) % 60); x < vw; x += 60) ctx.fillRect(R(x), 28, 1, 112);
+    // door back
+    { const x = 40 - cam; rect(x - 18, 70, 36, 70, '#251417'); rect(x - 14, 74, 28, 66, '#050304'); rect(x + 8, 108, 2, 3, '#aa7'); }
+    const a = az(W.st);
+    if (sc === 'waiting') {
+      [[200, 64], [300, 0]].forEach(([x0]) => {});
+      const c = 200 - cam; rect(c - 30, 112, 60, 20, '#2a1a22'); rect(c - 30, 100, 60, 14, '#3a2430'); rect(c - 30, 130, 4, 10, '#000'); rect(c + 26, 130, 4, 10, '#000');
+      const v = 320 - cam; rect(v - 14, 80, 28, 60, '#10202a'); rect(v - 10, 86, 20, 26, '#06141a'); rect(v - 8, 120, 16, 6, '#000'); ctx.globalAlpha = 0.5 + 0.3 * Math.sin(W.t * 3); rect(v - 8, 90, 16, 16, '#4fffd8'); ctx.globalAlpha = 1;
+      const k = 420 - cam; rect(k - 8, 60, 16, 16, '#ddd'); rect(k - 1, 62, 1, 6, '#000'); rect(k - 1, 67, 4, 1, '#000');
+      const pl = 120 - cam; rect(pl - 5, 126, 10, 14, '#2a1a1a'); rect(pl - 1, 108, 2, 18, '#2a3a1a'); rect(pl - 6, 106, 5, 3, '#2a3a1a'); rect(pl + 2, 110, 5, 3, '#2a3a1a');
+    } else if (sc === 'archive') {
+      [170, 290, 410, 530].forEach((xx, i) => {
+        const x = xx - cam; rect(x - 20, 70, 40, 70, '#2a2230'); for (let r = 0; r < 4; r++) { rect(x - 18, 74 + r * 16, 36, 1, '#000'); rect(x - 4, 80 + r * 16, 8, 2, '#c8b'); }
+      });
+      if (hash(Math.floor(W.t * 2)) > 0.6) rect(300 - cam, 30, 90, 1, 'rgba(255,0,64,0.4)');
+    } else if (sc === 'workshop') {
+      const d1 = 270 - cam; rect(d1 - 36, 108, 72, 8, '#3a2a1a'); rect(d1 - 32, 116, 4, 24, '#2a1a0e'); rect(d1 + 28, 116, 4, 24, '#2a1a0e');
+      rect(d1 - 14, 90, 28, 18, '#0a0a0a'); ctx.globalAlpha = 0.7 + 0.2 * Math.sin(W.t * 4); rect(d1 - 11, 93, 22, 12, '#2fd7ff'); ctx.globalAlpha = 1;
+      const s1 = 130 - cam; rect(s1 - 18, 70, 36, 34, '#ddd8c8'); rect(s1 - 6, 80, 4, 4, '#222'); rect(s1 + 3, 80, 4, 4, '#222'); rect(s1 - 5, 92, 10, 2, '#a22');
+      const c = 430 - cam; rect(c - 26, 124, 52, 8, '#2a2a3a'); rect(c - 26, 132, 3, 8, '#000'); rect(c + 23, 132, 3, 8, '#000');
+    }
+    // fragments
+    (Story.FRAGMENTS || []).forEach(f => {
+      if (f.where !== sc || a.frags.includes(f.id)) return;
+      const x = f.x - cam, bob = Math.sin(W.t * 2 + f.id) * 3, pulse = 0.5 + 0.5 * Math.sin(W.t * 4 + f.id);
+      rect(x - 4, 118 + bob, 9, 11, 'rgba(255,0,64,' + (0.3 + pulse * 0.5) + ')'); rect(x - 1, 121 + bob, 3, 3, '#fff');
+    });
+    // lamp
+    const lx = (w / 2) - cam; rect(lx - 12, 20, 24, 3, '#e8d8c8');
+    const g = ctx.createRadialGradient(lx, 24, 2, lx, 90, 130); g.addColorStop(0, 'rgba(255,200,160,0.2)'); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(R(lx - 150), 24, 300, 130);
+  }
+
+  function drawChase(vw, d) {
+    const cam = W.cam, m = W.mon;
+    rect(0, 0, vw, VH, '#050204'); rect(0, 0, vw, 140, '#0e070b'); rect(0, 140, vw, 40, '#080507'); rect(0, 140, vw, 2, '#5a0a1a');
+    // server racks (parallax)
+    for (let x = -((cam * 0.6) % 60); x < vw + 60; x += 60) {
+      rect(x, 40, 34, 100, '#150d12'); for (let r = 0; r < 8; r++) { rect(x + 3, 46 + r * 11, 28, 1, '#000'); const on = hash(Math.floor(W.t * 3) + r + Math.floor((x + cam * 0.6) / 60) * 7) > 0.6; rect(x + 24, 48 + r * 11, 3, 2, on ? '#ff2244' : '#3a0e18'); }
+    }
+    ctx.fillStyle = 'rgba(255,255,255,0.03)'; for (let x = -((cam) % 40); x < vw; x += 40) ctx.fillRect(R(x), 142, 1, 38);
+    // goal terminal
+    { const x = W.goal - cam; rect(x - 18, 90, 36, 50, '#1a1a1a'); rect(x - 14, 94, 28, 22, '#021'); ctx.globalAlpha = 0.7 + 0.3 * Math.sin(W.t * 6); rect(x - 10, 98, 20, 3, '#1aff6a'); rect(x - 10, 105, 14, 3, '#1aff6a'); ctx.globalAlpha = 1; rect(x - 20, 70, 40, 3, '#1aff6a'); }
+    // solids
+    W.solids.forEach(s => {
+      if (s.dead) return; const x = s.x - cam; if (x < -40 || x > vw + 40) return;
+      if (s.kind === 'crate') { rect(x - s.w / 2, GY - s.h, s.w, s.h, '#2a1a1e'); rect(x - s.w / 2, GY - s.h, s.w, 2, '#5a3a40'); rect(x - s.w / 2 + 2, GY - s.h + 3, s.w - 4, s.h - 5, '#1a1014'); }
+      else { for (let k = 0; k < s.h; k += 4) { const gl = hash(Math.floor(W.t * 10) + k + s.x) > 0.5; rect(x - s.w / 2 + (gl ? 1 : -1), GY - k - 4, s.w, 4, gl ? '#4fffd8' : '#14867a'); } }
+    });
+    // monster: the Sweeper
+    { const x = m.x - cam;
+      // void behind it
+      const gr = ctx.createLinearGradient(R(x - 40), 0, R(x + 30), 0); gr.addColorStop(0, '#000'); gr.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, R(x - 40), VH); ctx.fillStyle = gr; ctx.fillRect(R(x - 40), 0, 70, VH);
+      if (x > -80 && x < vw + 60) {
+        const wob = Math.sin(W.t * 16) * 1.5;
+        rect(x - 8, 84 + wob, 16, 56, '#000'); rect(x - 10, 74 + wob, 20, 14, '#000');
+        limb(x + 6, 96, x + 26, 118 + Math.sin(W.t * 10) * 4, 4, '#000'); limb(x + 4, 104, x + 24, 128 + Math.cos(W.t * 10) * 4, 4, '#000');
+        rect(x + 0, 78 + wob, 3, 3, '#ff0030'); rect(x + 5, 78 + wob, 3, 3, '#ff0030');
+        for (let k = 0; k < 5; k++) rect(x - 30 - k * 8, 80 + hash(k + Math.floor(W.t * 12)) * 56, 8 + hash(k) * 12, 2, 'rgba(255,0,48,0.6)');
+      }
+    }
+  }
+
+  function drawArena(vw, d) {
+    const cam = W.cam, b = W.boss;
+    rect(0, 0, vw, VH, '#040208'); rect(0, 0, vw, 140, '#0d0714'); rect(0, 140, vw, 40, '#07040c'); rect(0, 140, vw, 2, '#5a0a3a');
+    // monitor wall
+    for (let i = 0; i < 12; i++) {
+      const x = i * 80 - cam * 0.5 + 30; if (x < -50 || x > vw + 10) continue;
+      rect(x, 30 + (i % 2) * 24, 44, 30, '#120a1a'); const on = hash(Math.floor(W.t * 2) + i) > 0.4;
+      rect(x + 3, 33 + (i % 2) * 24, 38, 24, on ? '#2a0a24' : '#080410');
+      if (on) { rect(x + 10, 40 + (i % 2) * 24, 6, 6, '#ff2060'); rect(x + 26, 40 + (i % 2) * 24, 6, 6, '#ff2060'); }
+    }
+    // boss warning marks
+    b.orbs.forEach(o => {
+      const x = o.x - cam;
+      if (!o.fall) { ctx.globalAlpha = 0.35 + 0.35 * Math.sin(W.t * 30); rect(x - 4, 20, 8, 120, '#ff2244'); ctx.globalAlpha = 1; }
+      else { rect(x - 4, o.y - 4, 8, 8, '#ff2244'); rect(x - 2, o.y - 2, 4, 4, '#fff'); }
+    });
+    if (b.warn) { ctx.globalAlpha = 0.3 + 0.3 * Math.sin(W.t * 30); rect(b.tx - cam - 22, 30, 44, 112, '#ff2244'); ctx.globalAlpha = 1; }
+    b.shots.forEach(s => { const x = s.x - cam; rect(x - 5, s.y - 4, 10, 8, '#ff2244'); rect(x - 3, s.y - 2, 6, 4, '#fff'); });
+    // the Director: monitor head, suit
+    if (!b.dead || Math.floor(W.t * 20) % 2) {
+      const x = b.x - cam, y = b.y, shake = b.flash > 0 ? (Math.random() - 0.5) * 4 : 0;
+      const stunned = b.mode === 'stunned';
+      rect(x - 10 + shake, y + 12, 20, 30, stunned ? '#2a2236' : '#1a1226');
+      rect(x - 9 + shake, y + 28, 7, 14, '#0a0610'); rect(x + 2 + shake, y + 28, 7, 14, '#0a0610');
+      rect(x - 14 + shake, y - 16, 28, 26, '#242030'); rect(x - 12 + shake, y - 14, 24, 21, '#000');
+      const blink = hash(Math.floor(W.t * 5)) > 0.93;
+      if (!blink) { rect(x - 8 + shake, y - 8, 5, 5, stunned ? '#4fffd8' : '#ff0040'); rect(x + 3 + shake, y - 8, 5, 5, stunned ? '#4fffd8' : '#ff0040'); }
+      rect(x - 6 + shake, y + 1, 12, 1, stunned ? '#4fffd8' : '#ff0040');
+      if (stunned) { for (let k = 0; k < 3; k++) rect(x - 16 + hash(k + Math.floor(W.t * 20)) * 30, y - 16 + hash(k * 3 + Math.floor(W.t * 20)) * 50, 6, 1, '#4fffd8'); }
+      if (!stunned && b.mode !== 'idle' && b.mode !== 'slam') rect(x - 2, y - 24, 4, 4, '#ff0040');
+    }
+  }
 
   function draw() {
     const s = scaleOf(), oy = (canvas.height - VH * s) / 2, vw = canvas.width / s;
@@ -179,162 +768,43 @@
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.setTransform(s, 0, 0, s, 0, oy);
     ctx.imageSmoothingEnabled = false;
-    const cam = W.cam;
-    const circus = document.body.classList.contains('circus');
-    // wall / ceiling / floor
-    ctx.fillStyle = '#060306'; ctx.fillRect(0, 0, vw, VH);
-    ctx.fillStyle = '#0d090b'; ctx.fillRect(0, 0, vw, 38);
-    ctx.fillStyle = '#150b0e'; ctx.fillRect(0, 38, vw, 112);
-    ctx.fillStyle = '#0a0809'; ctx.fillRect(0, 150, vw, 50);
-    ctx.fillStyle = '#3a0713'; ctx.fillRect(0, 150, vw, 2);
-    // wall panels
-    ctx.fillStyle = '#1b0f13';
-    for (let x = -((cam) % 80); x < vw; x += 80) ctx.fillRect(x, 38, 1, 112);
-    ctx.fillStyle = '#10090c';
-    for (let x = -((cam * 0.5) % 40); x < vw + 40; x += 40) ctx.fillRect(x, 160 + ((x * 3) % 5), 1, 40);
-    // pipes
-    ctx.fillStyle = '#1d1517'; ctx.fillRect(0, 12, vw, 3); ctx.fillStyle = '#0a0607'; ctx.fillRect(0, 15, vw, 1);
-
-    // wall writing
-    ctx.font = '5px "Press Start 2P", monospace';
-    ctx.textBaseline = 'top';
-    W.lines.forEach(l => {
-      if (W.target < l.min && l.min > 2) return;
-      const x = l.x - cam; if (x < -200 || x > vw + 20) return;
-      const wob = hash(Math.floor(W.t * 6) + l.x) > 0.97 ? 1 : 0;
-      ctx.fillStyle = 'rgba(' + (110 + d * 90) + ',0,25,' + (0.5 + d * 0.4) + ')';
-      ctx.fillText(l.t, x + wob, 54 + (l.x % 3) * 8);
-    });
-
-    // fragments
-    if (W.target >= 6) Story.FRAGMENTS.forEach(f => {
-      if (W.az.frags.includes(f.id)) return;
-      const x = f.x - cam; if (x < -20 || x > vw + 20) return;
-      const pulse = 0.5 + 0.5 * Math.sin(W.t * 4 + f.id);
-      ctx.fillStyle = 'rgba(255,0,64,' + (0.3 + pulse * 0.5) + ')';
-      ctx.fillRect(x - 3, 130 + Math.sin(W.t * 2 + f.id) * 3, 7, 9);
-      ctx.fillStyle = '#fff'; ctx.fillRect(x - 1, 132 + Math.sin(W.t * 2 + f.id) * 3, 3, 3);
-    });
-
-    // terminal
-    {
-      const x = 90 - cam;
-      ctx.fillStyle = '#1a1a1a'; ctx.fillRect(x - 14, 106, 28, 44);
-      ctx.fillStyle = '#020'; ctx.fillRect(x - 11, 110, 22, 16);
-      ctx.fillStyle = '#ff2050'; ctx.fillRect(x - 9, 113 + ((W.t * 3 | 0) % 2) * 3, 9, 1); ctx.fillRect(x - 9, 118, 14, 1);
-    }
-
-    // doors
-    for (let i = 1; i <= 10; i++) {
-      const x = DOOR_X(i) - cam; if (x < -40 || x > vw + 40) continue;
-      const open = i === W.target, done = i < W.target;
-      ctx.fillStyle = '#251417'; ctx.fillRect(x - 24, 62, 48, 90);
-      ctx.fillStyle = done ? '#0e0a0b' : open ? '#2c1216' : '#171011'; ctx.fillRect(x - 20, 66, 40, 86);
-      ctx.fillStyle = '#000'; ctx.fillRect(x - 17, 70, 34, 50);
-      ctx.fillStyle = '#3a2a2d'; ctx.fillRect(x + 11, 112, 3, 3);
-      // number plate
-      ctx.fillStyle = open ? (Math.sin(W.t * 5) > 0 ? '#ff0040' : '#800020') : done ? '#402028' : '#2a1a1d';
-      ctx.fillRect(x - 11, 54, 22, 8);
-      ctx.fillStyle = '#000'; ctx.font = '5px "Press Start 2P", monospace'; ctx.textBaseline = 'top';
-      ctx.fillText(String(i).padStart(2, '0'), x - 5, 56);
-      if (!open && !done) { ctx.fillStyle = '#5a0a1a'; ctx.fillRect(x - 12, 100, 24, 2); ctx.fillRect(x - 1, 94, 2, 14); }
-      if (open) { ctx.fillStyle = 'rgba(255,0,64,' + (0.08 + 0.05 * Math.sin(W.t * 3)) + ')'; ctx.fillRect(x - 40, 60, 80, 100); }
-    }
-
-    // monitor
-    if (W.target >= 5) {
-      const x = 3560 - cam;
-      if (x > -60 && x < vw + 60) {
-        ctx.fillStyle = '#151013'; ctx.fillRect(x - 28, 84, 56, 52);
-        ctx.fillStyle = '#000'; ctx.fillRect(x - 24, 88, 48, 38);
-        const look = Math.max(-3, Math.min(3, (W.px - 3560) / 40));
-        ctx.fillStyle = '#ff0040'; ctx.fillRect(x - 15, 100, 10, 10); ctx.fillRect(x + 5, 100, 10, 10);
-        ctx.fillStyle = '#000'; ctx.fillRect(x - 11 + look, 103, 3, 5); ctx.fillRect(x + 9 + look, 103, 3, 5);
-        if (hash(Math.floor(W.t * 3)) > 0.9) { ctx.fillStyle = '#000'; ctx.fillRect(x - 24, 98, 48, 14); }
-        ctx.fillStyle = '#40101a'; ctx.fillRect(x - 12, 118, 24, 2);
-      }
-    }
-
-    // ceiling lights (flicker more with dread)
-    for (let lx = 100; lx < WORLD_W; lx += 300) {
-      const x = lx - cam; if (x < -60 || x > vw + 60) continue;
-      const bad = hash(Math.floor(W.t * (4 + d * 14)) + lx) < d * 0.5;
-      const on = !bad && W.lightsOut <= 0;
-      ctx.fillStyle = on ? '#e8d8c8' : '#2a2222'; ctx.fillRect(x - 14, 22, 28, 3);
-      if (on) {
-        const g = ctx.createRadialGradient(x, 25, 2, x, 90, 110);
-        g.addColorStop(0, circus ? 'rgba(255,120,200,0.20)' : 'rgba(255,40,70,' + (0.16 + d * 0.1) + ')'); g.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.fillStyle = g; ctx.fillRect(x - 130, 25, 260, 130);
-      }
-    }
-
-    // stalker
-    if (W.stalkerOn) {
-      const x = W.stalkerX - cam;
-      if (x > -30 && x < vw + 30 && W.stalkerFlicker <= 0) {
-        ctx.fillStyle = '#000'; ctx.fillRect(x - 6, 100, 12, 50); ctx.fillRect(x - 5, 92, 10, 10);
-        ctx.fillRect(x - 12, 108, 4, 30); ctx.fillRect(x + 8, 108, 4, 30);
-        ctx.fillStyle = '#ff0030'; ctx.fillRect(x - 3, 95, 2, 2); ctx.fillRect(x + 1, 95, 2, 2);
-      }
-    }
-
-    // player: dark coat, red scarf, katana on back
-    {
-      const x = W.px - cam, y = 150, f = W.face, bob = Math.abs(Math.sin(W.walk * 8)) * (keys.left || keys.right ? 1.5 : 0);
-      ctx.fillStyle = '#0a0a0a'; ctx.fillRect(x - 4, y - 34 - bob, 8, 20);              // coat
-      ctx.fillRect(x - 3, y - 15 - bob, 3, 15); ctx.fillRect(x + 1, y - 15 - bob * 0.2, 3, 15); // legs
-      ctx.fillStyle = '#c9a98c'; ctx.fillRect(x - 3, y - 43 - bob, 6, 8);                // head
-      ctx.fillStyle = '#1a0a0a'; ctx.fillRect(x - 3, y - 44 - bob, 6, 3);                // hair
-      ctx.fillStyle = '#ff0040'; ctx.fillRect(x - 4, y - 35 - bob, 8, 2);               // scarf
-      ctx.fillRect(x - f * 6, y - 35 - bob, 3, 2 + Math.sin(W.t * 6) * 1.5);
-      ctx.fillStyle = '#777'; ctx.fillRect(x - f * 6, y - 40 - bob, 1, 24);            // blade
-      // shadow
-      ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(x - 6, y - 1, 12, 2);
-    }
-
-    // darkness / flashlight vignette
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    const px = (W.px - cam) * s, py = oy + 115 * s, r = Math.max(canvas.width, canvas.height) * (0.62 - d * 0.28);
-    const g2 = ctx.createRadialGradient(px, py, 20, px, py, r);
-    g2.addColorStop(0, 'rgba(0,0,0,0)'); g2.addColorStop(1, 'rgba(0,0,0,' + (0.82 + d * 0.15) + ')');
-    ctx.fillStyle = g2; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    if (W.lightsOut > 0) { ctx.fillStyle = 'rgba(0,0,0,0.88)'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
-    if (circus) { ctx.fillStyle = 'rgba(255,80,200,0.07)'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+    if (W.scene === 'hall') drawHall(vw, d); else if (W.scene === 'chase') drawChase(vw, d); else if (W.scene === 'arena') drawArena(vw, d); else drawRoom(vw, d);
+    // solids in non-chase scenes none. player
+    drawZero(R(W.p.x - W.cam), R(W.p.y), W.p, W.t);
+    drawParts(0.016, W.cam);
+    // hit flash
+    if (W.scene === 'arena' && W.lives <= 0) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+    if (W.scene === 'hall' || ROOMS[W.scene]) {
+      vignette(s, oy, d, W.p.x - W.cam, 0.78 - d * 0.28);
+      if (W.lightsOut > 0) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = 'rgba(0,0,0,0.88)'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+    } else if (W.scene === 'chase') vignette(s, oy, 0.3, W.p.x - W.cam, 0.8);
+    if (document.body.classList.contains('circus') && W.scene === 'hall') { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = 'rgba(255,80,200,0.07)'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
   }
 
+  /* ---------- main loop ---------- */
   function loop(now) {
     if (!W) return;
     const dt = Math.min(0.05, (now - W.last) / 1000); W.last = now; W.t += dt;
-    if (!W.entering) {
-      const dir = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
-      if (dir) { W.px = Math.max(40, Math.min(WORLD_W - 60, W.px + dir * SPEED * dt)); W.face = dir; W.walk += dt; }
-    }
+    updatePlayer(dt);
+    if (W.scene === 'hall') updateHall(dt); else if (W.scene === 'chase') updateChase(dt); else if (W.scene === 'arena') updateArena(dt);
     const vw = canvas.width / scaleOf();
-    W.cam = Math.max(0, Math.min(WORLD_W - vw, W.px - vw / 2));
-    // stalker: creeps closer, disappears when lights flicker
-    const d = Horror.dread(W.st);
-    if (W.stalkerOn) {
-      const gap = W.px - W.stalkerX;
-      const pace = 8 + d * 26;
-      if (Math.abs(gap) > 150 - d * 70) W.stalkerX += Math.sign(gap) * pace * dt;
-      if (Math.abs(gap) < 120 - d * 60 && W.lightsOut <= 0) { W.lightsOut = 0.35; W.stalkerX = W.px + (Math.random() < 0.5 ? -1 : 1) * (420 + Math.random() * 300); Horror.hook.glitch && Horror.hook.glitch(); }
-    }
-    if (W.lightsOut > 0) W.lightsOut -= dt;
-    if (W.stalkerFlicker > 0) W.stalkerFlicker -= dt; else if (Math.random() < 0.01) W.stalkerFlicker = 0.1;
-    if (d > 0.2 && Math.random() < dt * d * 0.15) { W.lightsOut = 0.25; }
-    // hint
-    const n = nearest();
+    W.cam = Math.max(0, Math.min(W.width - vw, W.p.x - vw / 2 + W.p.face * 18));
+    // interact
+    const n = (!W.entering && !W.done) ? nearest() : null;
+    if (pressed.act) { pressed.act = false; if (n) n.fn(); }
     let hint = '';
-    if (n) {
-      if (n.kind === 'door') hint = n.i === W.target ? '[E / ACT] ENTER SESSION ' + String(n.i).padStart(2, '0') : '[E / ACT] DOOR ' + String(n.i).padStart(2, '0');
-      else if (n.kind === 'terminal') hint = '[E / ACT] READ FILE';
-      else if (n.kind === 'monitor') hint = '[E / ACT] LOOK AT THE SCREEN';
-      else hint = '[E / ACT] PICK UP FRAGMENT';
-    } else if (W.t < 8) hint = 'ARROWS / A-D: WALK';
+    if (n) hint = '[E / ACT] ' + n.label;
+    else if (W.t < 9 && W.scene === 'hall') hint = 'A / D walk. Hold Shift to run. W jump. J slash.';
+    else if (W.scene === 'arena' && W.t < 8) hint = 'Jump the shots. Slash falling orbs. Slash him when he drops.';
     hintEl.textContent = hint;
     draw();
     W.raf = requestAnimationFrame(loop);
   }
 
-  window.World = { enter, get active() { return !!W; } };
+  window.World = {
+    enter, run,
+    get active() { return !!W; },
+    get mode() { return W ? W.scene : null; },
+    _debug: () => W
+  };
 })();

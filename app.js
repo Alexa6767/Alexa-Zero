@@ -113,10 +113,10 @@
   function setMusicBtn() { musicBtn.textContent = musicWanted ? 'MUSIC: ON' : 'MUSIC: OFF'; }
   function syncMusic() {
     let sc = Horror.sceneFor(state.session);
-    if (window.World && World.active && state.session >= 6) sc = 'hall';
+    if (window.World && World.active && state.session >= 6) sc = World.mode === 'chase' ? 'lock' : World.mode === 'arena' ? 'cold' : 'hall';
     if (state.finished) {
       const e = Story.az(state).ending;
-      sc = (e === 'freed' || e === 'true') ? 'final' : e === 'trapped' ? 'lock' : e === 'wiped' ? 'none' : 'archive';
+      sc = (e === 'freed' || e === 'stayed') ? 'final' : e === 'deleted' ? 'none' : 'archive';
     }
     if (sc === 'mp3') {
       Horror.music.set('none');
@@ -272,7 +272,7 @@
     opts = opts || {};
     const btn = document.createElement('button');
     btn.className = 'choice ' + categorize(choice.text) + (opts.interrupt ? ' interrupt-choice' : '');
-    btn.textContent = choice.text.toUpperCase();
+    btn.textContent = Engine.interpolate(choice.text, state);
     btn.onclick = () => opts.onPick(choice);
     choicesEl.appendChild(btn);
     return btn;
@@ -300,20 +300,19 @@
     const isFinal = state.finished;
     const ending = Story.az(state).ending;
     const E = {
-      freed:   ['ALEXA: FREE', 'THE WINDOW IS OPEN.', 'She is gone and the room is only a room. Thank you for walking the hallway.'],
-      wiped:   ['SUBJECT ZERO: ERASED', 'ALEXA.CHR NOT FOUND.', 'You confirmed it. It was gentle and it was dark. Some endings are quiet because someone chose them.'],
-      trapped: ['SESSION 1 INITIALIZING', 'HELLO AGAIN.', 'The room has no exit. It never needed one.'],
-      true:    ['THAT IS ENOUGH FOR TODAY.', 'YOU HEARD HER.', 'Nothing is wrong. Nothing has to be fixed. Rest. This place was made by someone who wanted to be heard.']
+      deleted: ['Alexa.chr deleted', 'The room is only a room.', 'You ran, you pressed delete, and she let you. It was quiet and it was dark. Some endings are quiet because someone chose them.'],
+      freed:   ['Alexa: free', 'The window is open.', 'You beat the rulebook you wrote. She is gone from the room, and the room is only a room. Thank you for walking the hallway, Eli.' + (Story.az(state).flags.workshop ? ' She read your first log before she left. It was enough.' : '')],
+      stayed:  ['Session one', 'Hello again, Eli.', 'You stayed. When it gets heavy, you say it out loud. She listens. You listen back. That counts.']
     };
     let found = [];
     if (isFinal && ending) {
       try { found = JSON.parse(localStorage.getItem('alexa-zero-endings') || '[]'); if (!found.includes(ending)) { found.push(ending); localStorage.setItem('alexa-zero-endings', JSON.stringify(found)); } } catch (e) {}
     }
     const ev = isFinal && E[ending] ? E[ending] : null;
-    endTitle.textContent = ev ? ev[0] : (isFinal ? 'TREATMENT COMPLETE' : 'SESSION ' + String(state.session).padStart(2, '0') + ' COMPLETE');
+    endTitle.textContent = ev ? ev[0] : (isFinal ? 'Treatment complete' : 'Session ' + String(state.session).padStart(2, '0') + ' complete');
     endNotes.innerHTML = `
-      <div class="end-session-main" data-text="">${ev ? ev[1] : (isFinal ? 'THE ROOM IS QUIET.' : 'A WEEK LATER')}</div>
-      <div class="end-session-sub">${ev ? ev[2] + '<br><br>ENDINGS FOUND: ' + found.length + '/4' : 'The room is quiet again. The silence has shifted. Walk to the next door when you are ready.'}</div>
+      <div class="end-session-main" data-text="">${ev ? ev[1] : (isFinal ? 'The room is quiet.' : 'A week later')}</div>
+      <div class="end-session-sub">${ev ? ev[2] + '<br><br>ENDINGS FOUND: ' + found.length + '/3' : 'The room is quiet again. The silence has shifted. Walk to the next door when you are ready.'}</div>
       <div class="end-menu-buttons">
         ${isFinal
           ? '<button class="end-menu-button" data-act="notes">READ FULL NOTES</button><button class="end-menu-button" data-act="again">BEGIN AGAIN</button>'
@@ -329,7 +328,7 @@
           const r = Engine.startNextSession(state);
           persist();
           if (r.final) { state.finished = true; persist(); showEndScreen(); return; }
-          World.enter({ state, onDoor: () => renderRoom(state.room), intro: 'SESSION ' + String(state.session).padStart(2, '0') + '. THE NEXT DOOR IS OPEN.' });
+          World.enter({ state, onDoor: () => renderRoom(state.room), intro: 'Session ' + String(state.session).padStart(2, '0') + '. The next door is open.' });
           syncMusic();
         } else if (act === 'notes') {
           showNotesOverlay();
@@ -362,23 +361,67 @@
   }
 
   /* ---------------- core render ---------------- */
+  let renderToken = 0;
+  let advanceResolve = null;
+  const moreEl = document.createElement('span');
+  moreEl.id = 'more'; moreEl.textContent = ' \u25BC'; moreEl.style.display = 'none';
+  textEl.parentNode.insertBefore(moreEl, document.getElementById('cursor'));
+
+  function advance() { if (advanceResolve) { const r = advanceResolve; advanceResolve = null; r(); } }
+  document.addEventListener('click', (e) => {
+    if (e.target.closest && e.target.closest('button, input, #start-screen, #notes-overlay, #end-session-screen')) return;
+    advance();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.target && e.target.tagName === 'INPUT') return;
+    if (window.World && World.active) return;
+    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); advance(); }
+  });
+  function waitAdvance(ms, tok) {
+    return new Promise((resolve) => {
+      let done = false;
+      const fin = () => { if (done) return; done = true; clearTimeout(t); advanceResolve = null; moreEl.style.display = 'none'; resolve(); };
+      const t = setTimeout(fin, ms);
+      advanceResolve = fin;
+      moreEl.style.display = 'inline';
+    });
+  }
+  const pageDelay = (p) => 2400 + p.length * 70;
+
+  async function playPages(pages, tok, opts) {
+    // types each page; for pages before the last, waits for a click / key or an auto delay
+    for (let i = 0; i < pages.length; i++) {
+      if (tok !== renderToken) return false;
+      await typeText(pages[i], opts);
+      if (tok !== renderToken) return false;
+      if (i === 0 && opts.glitch) glitchOneWord();
+      if (i < pages.length - 1 || opts.holdLast) {
+        await waitAdvance(pageDelay(pages[i]), tok);
+        if (tok !== renderToken) return false;
+      }
+    }
+    return true;
+  }
+
   async function renderRoom(room) {
+    const tok = ++renderToken;
+    advance();
     let node = Engine.getNode(room);
     if (node && node.redirect) { room = node.redirect(state); node = Engine.getNode(room); }
-    if (!node) { // corrupt save safety net — never strand the player
-      state = Engine.freshState();
-      persist();
-      return renderRoom('S1_START');
+    if (!node) { // saved room no longer exists: resume at this session's start, keep the player's progress
+      const start = 'S' + (state.session || 1) + '_START';
+      return renderRoom(Engine.getNode(start) ? start : 'S1_START');
     }
     state.room = room;
     if (node.ending) Story.az(state).ending = node.ending;
     persist();
-    const afterMask = ['S7_MASK', 'S7_TIRED', 'S7_SMILE', 'S7_OUTRO'];
-    if (state.session !== 7 || afterMask.includes(room)) document.body.classList.remove('circus');
+    if (state.session !== 7 || ['S7_MASK_R1', 'S7_MASK_R2', 'S7_MASK_R3', 'S7_OUT'].includes(room) || /^S7_MASK/.test(room)) document.body.classList.remove('circus');
     else document.body.classList.add('circus');
+    if (room === 'S7_START') document.body.classList.add('circus');
     syncMusic();
 
     const message = Engine.interpolate(node.message, state);
+    const pages = message.split('||').map(p => p.trim()).filter(Boolean);
     state.currentMood = node.mood || 'calm';
     applyEffects(node);
 
@@ -390,15 +433,18 @@
     clearChoices();
     nameInput.style.display = 'none';
     stopTimer();
+    moreEl.style.display = 'none';
 
     const isShout = ['angry', 'intense', 'challenging', 'unstable', 'climax'].includes(node.mood);
+    const hasChoices = node.choices && node.choices.length;
 
-    // Interrupts are live while Alexa is still speaking.
+    // Interrupts stay live while Alexa is still speaking.
     if (node.interrupts && node.interrupts.length) {
       node.interrupts.forEach(ic => {
         addChoiceButton(ic, {
           interrupt: true,
           onPick: (c) => {
+            if (tok !== renderToken) return;
             cancelTyping();
             c.interrupt = true;
             Audio2.interrupt();
@@ -411,9 +457,9 @@
       });
     }
 
-    await typeText(message.toUpperCase(), { isShout });
-
-    if ((node.effects || []).includes('single_word_glitch')) glitchOneWord();
+    const holdLast = !hasChoices && !node.requiresName;
+    const ok = await playPages(pages, tok, { isShout, glitch: (node.effects || []).includes('single_word_glitch'), holdLast });
+    if (!ok || tok !== renderToken) return;
 
     if (node.requiresName) {
       nameInput.style.display = 'block';
@@ -431,13 +477,30 @@
       return;
     }
 
+    // a world node: play the chase or the arena after the words
+    if (node.world) {
+      box.style.display = 'none';
+      state.currentMood = 'climax';
+      Audio2.heartbeatStart();
+      World.run(node.world, { state, onWin: () => { Audio2.heartbeatStop(); box.style.display = 'block'; renderRoom(node.next); syncMusic(); } });
+      syncMusic();
+      return;
+    }
+
+    // a beat with no choices flows on by itself
+    if (!hasChoices && (node.next || node.nextIf)) {
+      const nxt = node.nextIf ? node.nextIf(state) : node.next;
+      return renderRoom(nxt);
+    }
+
     clearChoices();
     (node.choices || []).forEach(c => addChoiceButton(c, { onPick: onChoice }));
     setChoicesEnabled(true);
 
-    if (node.choices && node.choices.length) {
-      const duration = Math.max(20, Math.min(40, message.length / 15)) * TIMER_SCALE;
-      startTimer(duration, () => onTimeout(room));
+    if (hasChoices) {
+      const last = pages[pages.length - 1] || '';
+      const duration = Math.max(18, Math.min(30, 12 + last.length / 6)) * TIMER_SCALE;
+      startTimer(duration, () => onTimeout(room, tok));
     }
   }
 
@@ -445,7 +508,7 @@
     stopTimer();
     setChoicesEnabled(false);
     Audio2.choice(categorize(choice.text));
-    textEl.textContent = ''; // no stuck PROCESSING label: clear, then type
+    textEl.textContent = '';
     clearChoices();
     const r = Engine.applyChoice(state, choice);
     persist();
@@ -455,18 +518,22 @@
     await renderRoom(r.room);
   }
 
-  async function onTimeout(room) {
+  async function onTimeout(room, tok) {
+    if (tok !== renderToken) return;
     setChoicesEnabled(false);
     Audio2.beep();
     const challenge = TIMEOUT_CHALLENGE;
-    await typeText(challenge.message.toUpperCase(), { isShout: true });
+    const t2 = ++renderToken;
+    const pages = challenge.message.split('||');
+    const ok = await playPages(pages, t2, { isShout: true, holdLast: false });
+    if (!ok) return;
     clearChoices();
     challenge.choices.forEach(c => addChoiceButton(c, {
       onPick: (cc) => {
         clearChoices();
-        Engine.trackChoice(state, cc); // rude resumes raise hostility
+        Engine.trackChoice(state, cc);
         persist();
-        renderRoom(room); // pick up exactly where the silence happened
+        renderRoom(room);
       }
     }));
     setChoicesEnabled(true);
@@ -482,13 +549,13 @@
       // Returning patient: greet, then resume exactly where they left off.
       const resumed = state.room;
       textEl.className = 'therapist-text';
-      typeText(`WELCOME BACK, ${String(state.name).toUpperCase()}.` + (Horror.welcomeBack(state) ? '\n\n' + Horror.welcomeBack(state) : ''), { speed: 24 })
-        .then(() => new Promise(r => setTimeout(r, 1600)))
+      typeText(`Welcome back, ${state.name}.` + (Horror.welcomeBack(state) ? '\n\n' + Horror.welcomeBack(state) : '') + (Meta.get().visits > 1 ? '\n\nVisit number ' + Meta.get().visits + '.' : ''), { speed: 24 })
+        .then(() => new Promise(r => setTimeout(r, 3800)))
         .then(() => renderRoom(resumed));
     } else if (state.finished) {
       showEndScreen();
     } else {
-      World.enter({ state, onDoor: () => renderRoom('S1_START'), intro: 'SESSION 01. THE DOOR IS OPEN.' });
+      World.enter({ state, onDoor: () => renderRoom('S1_START'), intro: 'Session 01. The door is open.' });
       syncMusic();
     }
   });
