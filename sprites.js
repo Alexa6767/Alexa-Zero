@@ -369,7 +369,7 @@
     const sx = (idx % M.cols) * M.cw, sy = Math.floor(idx / M.cols) * M.ch;
     ctx.save(); ctx.imageSmoothingEnabled = false;
     if (opts.floorY != null && !opts.tint && !opts.noRefl) {
-      ctx.save(); ctx.translate(x, y); ctx.scale(f * PSC, -PSC); ctx.globalAlpha = 0.22; ctx.drawImage(e.im, sx, sy, M.cw, M.ch, -M.ax, -M.ay, M.cw, M.ch); ctx.restore();
+      ctx.save(); ctx.translate(x, 2 * opts.floorY - y); ctx.scale(f * PSC, -PSC); ctx.globalAlpha = 0.22 * Math.max(0.25, 1 - (opts.floorY - y) / 90); ctx.drawImage(e.im, sx, sy, M.cw, M.ch, -M.ax, -M.ay, M.cw, M.ch); ctx.restore();
     }
     ctx.translate(x, y); ctx.scale(f * PSC, PSC);
     if (opts.dissolve > 0) ctx.globalAlpha = 1 - opts.dissolve * 0.85;
