@@ -151,6 +151,7 @@
   /* ---------- helpers ---------- */
   const hash = (n) => { const s = Math.sin(n * 127.1) * 43758.5453; return s - Math.floor(s); };
   const R = Math.round;
+  const lerp = (a, b, u) => a + (b - a) * u, clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   let TINT = null;
   function rect(x, y, w, h, c) { ctx.fillStyle = TINT || c; ctx.fillRect(R(x), R(y), w, h); }
   function limb(x1, y1, x2, y2, th, c) {
@@ -235,6 +236,106 @@
     W = null; hpEl.textContent = ''; fragEl.textContent = '';
     if (cb) cb();
   }
+
+  /* ---------- office cutscene: walk in, sit at the desk, zoom into the monitor ---------- */
+  function playOffice(done) {
+    cancelAnimationFrame(W.raf);
+    for (const k in keys) keys[k] = false;
+    hintEl.textContent = ''; msgEl.style.display = 'none';
+    const sess = (W.st && W.st.session) || 1, nm = String((W.st && W.st.name) || '').slice(0, 14);
+    const dur = { walk: 3.0, sit: 1.2, hold: 1.1, zoom: 3.0, flash: 0.45 };
+    const T0 = 0.5, T1 = T0 + dur.walk, T2 = T1 + 0.2 + dur.sit, T3 = T2 + dur.hold, T4 = T3 + dur.zoom, T5 = T4 + dur.flash;
+    const p = { x: 0, y: GY, vx: 0, vy: 0, face: 1, ground: true, ph: 0, run: false, stage: 0, slash: 0, atk: null, slideT: 0, vic: false, hurt: false, inv: 0, hist: [], landT: 0, hurtT: 0 };
+    let t = 0, last = performance.now(), fin = false, raf = 0, sitDone = false;
+    const ease = (u) => u < 0 ? 0 : u > 1 ? 1 : u * u * (3 - 2 * u);
+    const ease2 = (u) => u < 0 ? 0 : u > 1 ? 1 : (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2);
+    const finish = () => { if (fin) return; fin = true; cancelAnimationFrame(raf); window.removeEventListener('keydown', skip, true); canvas.removeEventListener('pointerdown', skip2, true); canvas.style.opacity = '1'; leave(() => { done && done(); }); };
+    const skip = (e) => { if (t > 1.2 && (e.code === 'Enter' || e.code === 'Space' || e.code === 'Escape')) { e.preventDefault(); t = Math.max(t, T4 - 0.05); } };
+    const skip2 = () => { if (t > 1.2) t = Math.max(t, T4 - 0.05); };
+    window.addEventListener('keydown', skip, true); canvas.addEventListener('pointerdown', skip2, true);
+    const frame = (now) => {
+      if (fin) return;
+      const dt = Math.min(0.05, (now - last) / 1000); last = now;
+      if (!(W && W.paused)) t += dt;
+      const s = scaleOf(), oy = (canvas.height - VH * s) / 2, vw = canvas.width / s, cx = vw / 2;
+      const chairX = cx - 14, scr = { x: cx + 36, y: 80, w: 32, h: 22 };
+      // character
+      let sitY = 0;
+      if (t < T0) { p.x = cx - 175; p.vx = 0; }
+      else if (t < T1) { const u = (t - T0) / dur.walk; p.x = lerp(cx - 175, chairX, u); p.vx = 62; p.ph += dt * 8.5; }
+      else { p.x = chairX; p.vx = 0; const u = clamp((t - T1 - 0.2) / dur.sit, 0, 1); p.landT = u <= 0 ? 0 : Math.max(0.004, 0.13 * (1 - u)); sitY = ease(u) * 5.5; if (u >= 1 && !sitDone) { sitDone = true; Audio2().tick && Audio2().tick(); } }
+      p.y = GY + sitY;
+      // camera zoom
+      const zu = ease2((t - T3) / dur.zoom), Zmax = Math.min(vw / scr.w, VH / scr.h) * 0.95, Z = 1 + (Zmax - 1) * Math.pow(zu, 1.6);
+      const fx = lerp(cx, scr.x + scr.w / 2, zu), fy = lerp(VH / 2, scr.y + scr.h / 2, zu);
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.setTransform(s, 0, 0, s, 0, oy); ctx.imageSmoothingEnabled = false;
+      ctx.save(); ctx.beginPath(); ctx.rect(0, 0, vw, VH); ctx.clip();
+      ctx.translate(vw / 2, VH / 2); ctx.scale(Z, Z); ctx.translate(-fx, -fy);
+      // room
+      const L = -400, Wd = vw + 800;
+      rect(L, 0, Wd, VH, '#050305'); rect(L, 0, Wd, 140, '#150d13'); rect(L, 26, Wd, 114, '#1b1018'); rect(L, 140, Wd, 60, '#0a060b'); rect(L, 140, Wd, 2, '#3a0713'); rect(L, 134, Wd, 6, '#120a10');
+      ctx.fillStyle = 'rgba(0,0,0,0.28)'; for (let x = cx % 48 - 480; x < vw + 400; x += 48) ctx.fillRect(R(x), 26, 1, 108);
+      ctx.fillStyle = 'rgba(0,0,0,0.35)'; for (let x = cx % 30 - 480; x < vw + 400; x += 30) ctx.fillRect(R(x), 142, 1, 40);
+      // door he came through
+      { const x = cx - 150; rect(x - 18, 70, 36, 70, '#251417'); rect(x - 14, 74, 28, 66, '#050304'); rect(x + 8, 108, 2, 3, '#aa7'); }
+      // window with rain
+      { const x = cx - 100; rect(x, 40, 40, 52, '#0d0a10'); rect(x + 2, 42, 36, 48, '#122030'); ctx.fillStyle = 'rgba(170,200,230,0.35)'; for (let i = 0; i < 14; i++) { const rx = x + 3 + ((i * 53) % 34), ry = 42 + ((t * (60 + (i % 4) * 14) + i * 31) % 48); ctx.fillRect(R(rx), R(ry), 1, 4); } rect(x + 19, 42, 2, 48, '#0d0a10'); rect(x + 2, 64, 36, 2, '#0d0a10'); rect(x - 3, 92, 46, 3, '#2a1a1e'); }
+      // wall clock (wrong time, fast hand)
+      { const x = cx + 6, y = 42; rect(x - 8, y - 8, 16, 16, '#d8d0c0'); rect(x - 7, y - 7, 14, 14, '#1a1418'); const a2 = t * 6, a1 = t * 0.5; ctx.strokeStyle = '#d8d0c0'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(a1) * 4, y + Math.sin(a1) * 4); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(a2) * 6, y + Math.sin(a2) * 6); ctx.stroke(); }
+      // shelf
+      { const x = cx + 80; rect(x, 56, 44, 2, '#2a1a1e'); [['#5a1020', 8], ['#203a5a', 6], ['#4a4a20', 7], ['#2a2a2a', 5], ['#6a2a2a', 6]].reduce((a, b) => { rect(x + 2 + a, 46, b[1], 10, b[0]); return a + b[1] + 1; }, 0); rect(x + 36, 50, 6, 6, '#d8d0c0'); }
+      // chair back (behind him)
+      rect(chairX - 14, 94, 4, 28, '#1a1216'); rect(chairX - 16, 92, 8, 4, '#2a1c22');
+      // desk
+      rect(cx + 14, 108, 82, 4, '#3a2630'); rect(cx + 14, 112, 82, 2, '#1a0e14'); rect(cx + 18, 114, 4, 26, '#241519'); rect(cx + 88, 114, 4, 26, '#241519'); rect(cx + 24, 114, 60, 18, '#150c10'); rect(cx + 26, 118, 56, 1, '#2a1a20'); rect(cx + 50, 122, 6, 2, '#6a5a50');
+      // lamp light
+      ctx.fillStyle = 'rgba(255,190,120,0.07)'; ctx.beginPath(); ctx.moveTo(cx + 78, 86); ctx.lineTo(cx + 44, 140); ctx.lineTo(cx + 112, 140); ctx.fill();
+      rect(cx + 82, 98, 2, 10, '#222'); rect(cx + 78, 94, 10, 4, '#3a3a3a'); rect(cx + 77, 98, 12, 1, '#ffd890');
+      // CRT monitor
+      rect(cx + 30, 74, 44, 34, '#26262c'); rect(cx + 32, 76, 40, 28, '#101014'); rect(cx + 40, 104, 24, 4, '#1c1c22'); rect(cx + 32, 106, 1, 2, '#ff0040');
+      // keyboard + mug
+      rect(cx + 34, 106, 28, 2, '#2a2a30'); rect(cx + 66, 102, 6, 6, '#d8d0c0'); rect(cx + 72, 104, 2, 3, '#d8d0c0');
+      // monitor screen content
+      const on = t > T2 - 0.4, flick = on ? 0.82 + 0.18 * Math.sin(t * 40) : 0;
+      rect(scr.x, scr.y, scr.w, scr.h, on ? '#021a12' : '#050808');
+      if (on) {
+        ctx.globalAlpha = flick; ctx.fillStyle = '#2fffa0'; ctx.font = '3px "Press Start 2P", monospace'; ctx.textBaseline = 'top';
+        const lines = ['NAME: ' + (nm.slice(0, 7) || 'none'), 'SESSION ' + String(sess).padStart(2, '0'), '> connecting', '> she listens'];
+        const shown = Math.min(lines.length, Math.floor((t - (T2 - 0.4)) * 2.2) + 1);
+        for (let i = 0; i < shown; i++) ctx.fillText(lines[i], scr.x + 2, scr.y + 2 + i * 5);
+        if (Math.floor(t * 3) % 2) ctx.fillRect(scr.x + 2, scr.y + 2 + shown * 5, 3, 3);
+        ctx.globalAlpha = 0.25; ctx.fillStyle = '#000'; for (let y = scr.y; y < scr.y + scr.h; y += 2) ctx.fillRect(scr.x, y, scr.w, 1);
+        ctx.globalAlpha = 1;
+        // screen glow on the wall
+        ctx.fillStyle = 'rgba(47,255,160,0.05)'; ctx.fillRect(cx + 10, 60, 90, 60);
+      }
+      // character + chair front
+      drawZero(R(p.x), R(p.y), p, t);
+      rect(chairX - 14, 121, 26, 4, '#2a1c22'); rect(chairX - 14, 125, 26, 1, '#0a0608'); rect(chairX - 2, 126, 3, 12, '#1a1216'); rect(chairX - 10, 138, 18, 2, '#1a1216');
+      ctx.restore();
+      // overlay: vignette, scanlines, VHS noise (same family as the pause screen)
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      const g = ctx.createRadialGradient(canvas.width / 2, canvas.height / 2, canvas.height * 0.2, canvas.width / 2, canvas.height / 2, canvas.height * 0.9);
+      g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,' + (0.65 + zu * 0.2) + ')'); ctx.fillStyle = g; ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = 'rgba(0,0,0,0.18)'; for (let y = 0; y < canvas.height; y += 3) ctx.fillRect(0, y, canvas.width, 1);
+      const nz = 0.03 + zu * 0.12 + (hash(Math.floor(t * 30)) > 0.97 ? 0.12 : 0);
+      for (let i = 0; i < 40; i++) { ctx.fillStyle = 'rgba(255,255,255,' + (nz * hash(i + Math.floor(t * 24))).toFixed(3) + ')'; ctx.fillRect(hash(i * 7 + Math.floor(t * 24)) * canvas.width, hash(i * 3 + Math.floor(t * 24) + 9) * canvas.height, 20 + hash(i) * 80, 2); }
+      const bar = ((t * 0.35) % 1) * (canvas.height + 80) - 40; ctx.fillStyle = 'rgba(255,255,255,' + (0.025 + zu * 0.05) + ')'; ctx.fillRect(0, bar, canvas.width, 26);
+      // REC hud
+      { const fs = Math.max(10, Math.round(canvas.height / 48)); ctx.font = fs + 'px "Press Start 2P", monospace'; ctx.textBaseline = 'top'; ctx.globalAlpha = 0.9 * (1 - zu * 0.6);
+        if (Math.floor(t * 1.6) % 2 === 0) { ctx.fillStyle = '#ff0040'; ctx.beginPath(); ctx.arc(fs * 1.2, fs * 1.6, fs * 0.45, 0, 6.3); ctx.fill(); }
+        ctx.fillStyle = '#e8e8ee'; const tc = (n) => String(Math.floor(n)).padStart(2, '0'); ctx.fillText('REC  00:' + tc(t / 60) + ':' + tc(t % 60), fs * 2.2, fs * 1.1); ctx.textAlign = 'center'; ctx.fillText('SESSION ' + String(sess).padStart(2, '0'), canvas.width / 2, canvas.height - fs * 4.2); ctx.textAlign = 'left'; ctx.globalAlpha = 1; }
+      // fades
+      if (t < T0) { ctx.fillStyle = 'rgba(0,0,0,' + (1 - t / T0) + ')'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+      if (t > T4) { const u = clamp((t - T4) / dur.flash, 0, 1), hh = canvas.height * (0.02 + 0.98 * ease(u)); ctx.fillStyle = 'rgba(210,255,235,' + (0.2 + 0.8 * u) + ')'; ctx.fillRect(0, canvas.height / 2 - hh / 2, canvas.width, hh); if (u > 0.55) { ctx.fillStyle = 'rgba(0,0,0,' + clamp((u - 0.55) / 0.45, 0, 1) + ')'; ctx.fillRect(0, 0, canvas.width, canvas.height); } }
+      if (t >= T5) { finish(); return; }
+      raf = requestAnimationFrame(frame);
+    };
+    Audio2().beep && Audio2().beep();
+    raf = requestAnimationFrame(frame);
+  }
+
   function fadeThen(fn, ms) {
     W.entering = true;
     canvas.style.transition = 'opacity 1s'; canvas.style.opacity = '0';
@@ -285,7 +386,7 @@
       for (let i = 1; i <= 10; i++) list.push({
         x: DOOR_X(i), r: 40, label: i === W.target ? 'Enter session ' + String(i).padStart(2, '0') : 'Door ' + String(i).padStart(2, '0'),
         fn: () => {
-          if (i === W.target) { Audio2().beep && Audio2().beep(); W.entering = true; hintEl.textContent = ''; fadeThen(() => leave(W.onDoor), 1200); }
+          if (i === W.target) { Audio2().beep && Audio2().beep(); W.entering = true; hintEl.textContent = ''; fadeThen(() => playOffice(W.onDoor), 700); }
           else if (i < W.target) showMsg('Session ' + String(i).padStart(2, '0') + ' is over. The chair is still warm.', 3000);
           else { showMsg('Locked. Not yet.', 2000); Audio2().error && Audio2().error(); }
         }
@@ -599,7 +700,7 @@
       });
       if (running) { ctx.globalAlpha = 0.5; for (let q = 0; q < 4; q++) rect(x - p.face * (14 + q * 7 + hash(q + Math.floor(t * 20)) * 6), y - 30 + q * 8, 8 + q * 2, 1, '#ffd0d8'); ctx.globalAlpha = 1; }
     }
-    if (!TINT) { ctx.globalAlpha = 0.5; rect(x - 7, y, 14, 2, '#000'); ctx.globalAlpha = 1; }
+    if (!TINT) { const sY = p.ground ? y : GY, hgt = Math.max(0, sY - y), sh = Math.max(0.4, 1 - hgt / 110), sw = Math.round(14 * sh); ctx.globalAlpha = 0.5 * sh; rect(x - (sw >> 1), sY, sw, 2, '#000'); ctx.globalAlpha = 1; }
     const dis = W.caught > 0 ? Math.min(1, (1.4 - W.caught) / 1.1) : 0;
     Sprites.draw(ctx, x, y, p, t, hero, { floorY: GY, dissolve: dis });
     if (dis > 0 && Math.random() < 0.7) W.parts.push({ x: p.x + (Math.random() - 0.5) * 14, y: p.y - Math.random() * 40, vx: (Math.random() - 0.5) * 30, vy: -20 - Math.random() * 30, life: 0.8, c: Math.random() < 0.5 ? '#ff3355' : '#e8e8ee', soft: 1 });
