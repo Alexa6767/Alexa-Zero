@@ -83,3 +83,4 @@ body #box { background:rgba(9,7,13,.74); backdrop-filter:blur(1.5px); -webkit-ba
 body.circus #box { background:rgba(42,15,74,.78); }
 #box.crt-on { animation:crtOn .7s ease-out; }
 @keyframes crtOn { 0% { transform:translate(-50%,-50%) scale(1,.004); filter:brightness(4); } 55% { transform:translate(-50%,-50%) scale(1,.06); filter:brightness(3); } 100% { transform:translate(-50%,-50%) scale(1,1); filter:brightness(1); } }
+#stats-note { position:absolute; left:0; right:0; bottom:16px; text-align:center; font-family:'Press Start 2P',monospace; font-size:7px; line-height:1.8; color:#6a6a76; letter-spacing:.5px; padding:0 14px; pointer-events:none; }
