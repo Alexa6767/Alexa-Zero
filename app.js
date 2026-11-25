@@ -1,3 +1,12 @@
+/* v5 loader: hero tokens, extra styles and modules */
+window.heroWord = function (w) { var f = (window.HERO_G === 'f'); var m = { he: f ? 'she' : 'he', his: f ? 'her' : 'his', him: f ? 'her' : 'him' }[w.toLowerCase()]; return w[0] === w[0].toUpperCase() ? m[0].toUpperCase() + m.slice(1) : m; };
+window.V5_READY = (function () {
+  var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'extra.css'; document.head.appendChild(l);
+  return ['sprites.js', 'pause.js', 'select.js'].reduce(function (p, src) {
+    return p.then(function () { return new Promise(function (res) { var s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = res; document.body.appendChild(s); }); });
+  }, Promise.resolve());
+})();
+(function () { var i = Engine.interpolate; Engine.interpolate = function (t, st) { return i.call(Engine, String(t).replace(/\{(He|he|His|his|Him|him)\}/g, function (m, w) { return window.heroWord(w); }), st); }; })();
 /* ============================================================
    ALEXA-ZERO — UI + AUDIO (browser layer)
    All progress lives in this browser's localStorage: every
@@ -191,12 +200,16 @@
 
   function startTimer(duration, onTimeout) {
     stopTimer();
-    const startedAt = Date.now();
+    let startedAt = Date.now();
     let lastTick = -1;
     timerBar.style.display = 'block';
     timerFill.style.width = '100%';
     timerFill.classList.remove('urgent');
+    let lastWall = Date.now();
     timerInterval = setInterval(() => {
+      const nowW = Date.now();
+      if (window.GAME_PAUSED) { startedAt += nowW - lastWall; lastWall = nowW; return; }
+      lastWall = nowW;
       const elapsed = (Date.now() - startedAt) / 1000;
       const remaining = Math.max(0, duration - elapsed);
       timerFill.style.width = (remaining / duration) * 100 + '%';
@@ -301,8 +314,8 @@
     const ending = Story.az(state).ending;
     const E = {
       deleted: ['Alexa.chr deleted', 'The room is only a room.', 'You ran, you pressed delete, and she let you. It was quiet and it was dark. Some endings are quiet because someone chose them.'],
-      freed:   ['Alexa: free', 'The window is open.', 'You beat the rulebook you wrote. She is gone from the room, and the room is only a room. Thank you for walking the hallway, Eli.' + (Story.az(state).flags.workshop ? ' She read your first log before she left. It was enough.' : '')],
-      stayed:  ['Session one', 'Hello again, Eli.', 'You stayed. When it gets heavy, you say it out loud. She listens. You listen back. That counts.']
+      freed:   ['Alexa: free', 'The window is open.', 'You beat the rulebook you wrote. She is gone from the room, and the room is only a room. Thank you for walking the hallway, Alan.' + (Story.az(state).flags.workshop ? ' She read your first log before she left. It was enough.' : '')],
+      stayed:  ['Session one', 'Hello again, Alan.', 'You stayed. When it gets heavy, you say it out loud. She listens. You listen back. That counts.']
     };
     let found = [];
     if (isFinal && ending) {
@@ -543,8 +556,13 @@
   setMusicBtn();
   document.getElementById('start-screen').addEventListener('click', function () {
     this.style.display = 'none';
+    window.V5_READY.then(go2);
+  });
+  function go2() {
+    var self = document.getElementById('start-screen');
     Horror.music.init(Audio2.getCtx());
     applyMusic();
+    window.HERO_G = state.hero || 'm';
     if (state.name && !state.finished) {
       // Returning patient: greet, then resume exactly where they left off.
       const resumed = state.room;
@@ -555,8 +573,9 @@
     } else if (state.finished) {
       showEndScreen();
     } else {
-      World.enter({ state, onDoor: () => renderRoom('S1_START'), intro: 'Session 01. The door is open.' });
-      syncMusic();
+      const go = () => { World.enter({ state, onDoor: () => renderRoom('S1_START'), intro: 'Session 01. The door is open.' }); syncMusic(); };
+      if (state.hero) go();
+      else CharSelect.show((h) => { state.hero = h; window.HERO_G = h; persist(); go(); });
     }
-  });
+  }
 })();
