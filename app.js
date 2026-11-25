@@ -2,7 +2,7 @@
 window.heroWord = function (w) { var f = (window.HERO_G === 'f'); var m = { he: f ? 'she' : 'he', his: f ? 'her' : 'his', him: f ? 'her' : 'him' }[w.toLowerCase()]; return w[0] === w[0].toUpperCase() ? m[0].toUpperCase() + m.slice(1) : m; };
 window.V5_READY = (function () {
   var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'extra.css'; document.head.appendChild(l);
-  return ['sprites.js', 'pause.js', 'select.js', 'atmo.js'].reduce(function (p, src) {
+  return ['sprites.js', 'pause.js', 'select.js', 'atmo.js', 'stats.js'].reduce(function (p, src) {
     return p.then(function () { return new Promise(function (res) { var s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = res; document.body.appendChild(s); }); });
   }, Promise.resolve());
 })();
@@ -427,6 +427,7 @@ window.V5_READY = (function () {
     }
     state.room = room;
     if (node.ending) Story.az(state).ending = node.ending;
+    if (window.Stats) Stats.room(state, room, node);
     persist();
     if (state.session !== 7 || ['S7_MASK_R1', 'S7_MASK_R2', 'S7_MASK_R3', 'S7_OUT'].includes(room) || /^S7_MASK/.test(room)) document.body.classList.remove('circus');
     else document.body.classList.add('circus');
@@ -484,6 +485,7 @@ window.V5_READY = (function () {
           const raw = nameInput.value.trim();
           nameInput.style.display = 'none';
           const route = Engine.recordName(state, raw);
+          if (window.Stats) Stats.ev('name', { name: state.name || raw }, state);
           persist();
           renderRoom(route);
         }
@@ -496,7 +498,7 @@ window.V5_READY = (function () {
       box.style.display = 'none';
       state.currentMood = 'climax';
       Audio2.heartbeatStart();
-      World.run(node.world, { state, onWin: () => { Audio2.heartbeatStop(); box.style.display = 'block'; box.classList.remove('crt-on'); void box.offsetWidth; box.classList.add('crt-on'); renderRoom(node.next); syncMusic(); } });
+      World.run(node.world, { state, onWin: () => { if (window.Stats) Stats.ev('world', { mode: String(node.world).slice(0, 8), win: 1 }, state); Audio2.heartbeatStop(); box.style.display = 'block'; box.classList.remove('crt-on'); void box.offsetWidth; box.classList.add('crt-on'); renderRoom(node.next); syncMusic(); } });
       syncMusic();
       return;
     }
@@ -522,6 +524,7 @@ window.V5_READY = (function () {
     stopTimer();
     setChoicesEnabled(false);
     Audio2.choice(categorize(choice.text));
+    if (window.Stats) Stats.ev('choice', { room: state.room, text: Engine.interpolate(choice.text, state), cat: categorize(choice.text) }, state);
     if (window.Atmo) Atmo.pick(categorize(choice.text));
     textEl.textContent = '';
     clearChoices();
@@ -565,7 +568,8 @@ window.V5_READY = (function () {
     Horror.music.init(Audio2.getCtx());
     applyMusic();
     window.HERO_G = state.hero || 'm';
-    const pick = (cont) => { if (state.heroPack) return cont(); CharSelect.show((h) => { state.hero = h; state.heroPack = 1; window.HERO_G = h; persist(); cont(); }, state.hero); };
+    if (window.Stats) Stats.ev('start', { hero: state.hero || '' }, state);
+    const pick = (cont) => { if (state.heroPack) return cont(); CharSelect.show((h) => { state.hero = h; state.heroPack = 1; window.HERO_G = h; persist(); if (window.Stats) Stats.ev('hero', { hero: h }, state); cont(); }, state.hero); };
     if (state.name && !state.finished) pick(() => {
       // Returning patient: greet, then resume exactly where they left off.
       const resumed = state.room;
