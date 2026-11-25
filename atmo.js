@@ -61,6 +61,7 @@
   }
   if (!reduce) requestAnimationFrame(frame); else { last = 0; frame(0); }
   var MOOD = { calm: 0.1, warm: 0, gentle: 0, curious: 0.25, tense: 0.6, cold: 0.5, angry: 1, intense: 1, challenging: 0.9, unstable: 1, climax: 1.2 };
+  tone = toneT = -0.55;
   window.Atmo = {
     pick: function (cat) { toneT = Math.max(-1.2, Math.min(1.2, toneT + (cat === 'bad' ? -0.6 : cat === 'good' ? 0.6 : 0.05))); boost = 0.5; },
     scene: function (st, node) {
