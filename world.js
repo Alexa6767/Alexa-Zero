@@ -945,7 +945,7 @@
     updatePlayer(dt);
     if (W.scene === 'hall') updateHall(dt); else if (W.scene === 'chase') updateChase(dt); else if (W.scene === 'arena') updateArena(dt);
     const vw = canvas.width / scaleOf();
-    W.cam = Math.max(0, Math.min(W.width - vw, W.p.x - vw / 2 + W.p.face * 18));
+    W.cam = Math.max(0, Math.min(W.width - vw, W.p.x - vw / 2));
     // interact
     const n = (!W.entering && !W.done) ? nearest() : null;
     if (pressed.act) { pressed.act = false; if (n) n.fn(); }
