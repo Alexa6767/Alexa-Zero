@@ -20,7 +20,7 @@
   const ROOMS = {
     waiting:  { w: 560, name: 'Waiting room' },
     archive:  { w: 780, name: 'The archive' },
-    workshop: { w: 560, name: "Eli's workshop" }
+    workshop: { w: 560, name: "Alan's workshop" }
   };
 
   const canvas = document.createElement('canvas');
@@ -32,30 +32,30 @@
   ui.innerHTML =
     '<div id="world-hint"></div><div id="world-msg"></div><div id="world-frags"></div><div id="world-hp"></div>' +
     '<div id="world-pad"><div class="pad-l"><button data-k="left">&#9664;</button><button data-k="right">&#9654;</button></div>' +
-    '<div class="pad-r"><button data-k="run">RUN</button><button data-k="jump">JUMP</button><button data-k="slash">SLASH</button><button data-k="act" class="act">ACT</button></div></div>';
+    '<div class="pad-r"><button data-k="run">RUN</button><button data-k="jump">JUMP</button><button data-k="slash">SLASH</button><button data-k="stab">STAB</button><button data-k="kick">KICK</button><button data-k="slide">SLIDE</button><button data-k="act" class="act">ACT</button></div></div>';
   document.body.appendChild(ui);
   const hintEl = ui.querySelector('#world-hint'), msgEl = ui.querySelector('#world-msg'),
         fragEl = ui.querySelector('#world-frags'), hpEl = ui.querySelector('#world-hp');
 
   let W = null;
   let msgTimer = null;
-  const keys = { left: false, right: false, run: false, jump: false, slash: false };
-  const pressed = { jump: false, slash: false, act: false };
+  const keys = { left: false, right: false, run: false, jump: false, slash: false, stab: false, kick: false, slide: false };
+  const pressed = { jump: false, slash: false, stab: false, kick: false, slide: false, act: false };
   const CODEMAP = {
     ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', ShiftLeft: 'run', ShiftRight: 'run',
-    ArrowUp: 'jump', KeyW: 'jump', Space: 'jump', KeyJ: 'slash', KeyK: 'slash', KeyX: 'slash', KeyZ: 'slash', KeyL: 'slash',
+    ArrowUp: 'jump', KeyW: 'jump', Space: 'jump', KeyJ: 'slash', KeyX: 'slash', KeyZ: 'slash', KeyK: 'stab', KeyL: 'kick', KeyS: 'slide', ArrowDown: 'slide', KeyC: 'slide',
     KeyE: 'act', Enter: 'act', NumpadEnter: 'act', KeyF: 'act'
   };
   const keyOf = (e) => CODEMAP[e.code] || KEYMAP[String(e.key || '').toLowerCase()] || ({ 'ش': 'left', 'ي': 'right', 'ض': 'jump', 'ث': 'act', 'ق': 'jump', 'ا': 'left', 'ل': 'right' })[e.key] || null;
   const KEYMAP = {
     arrowleft: 'left', a: 'left', arrowright: 'right', d: 'right', shift: 'run',
     arrowup: 'jump', w: 'jump', ' ': 'jump',
-    j: 'slash', k: 'slash', x: 'slash', z: 'slash',
+    j: 'slash', x: 'slash', z: 'slash', k: 'stab', l: 'kick', s: 'slide', c: 'slide', arrowdown: 'slide',
     e: 'act', enter: 'act'
   };
   function setKey(k, v) {
     if (k === 'act') { if (v) pressed.act = true; return; }
-    if ((k === 'jump' || k === 'slash') && v && !keys[k]) pressed[k] = true;
+    if ((k === 'jump' || k === 'slash' || k === 'stab' || k === 'kick' || k === 'slide') && v && !keys[k]) pressed[k] = true;
     keys[k] = v;
   }
   window.addEventListener('keydown', (e) => {
@@ -95,7 +95,7 @@
       { x: 2300, min: 6, t: '412 NIGHTS. ONE CHAIR.' },
       { x: 2640, min: 7, t: 'SMILE SMILE SMILE SMILE' },
       { x: 2980, min: 8, t: 'THE DIRECTOR IS LISTENING' },
-      { x: 3300, min: 9, t: 'I SEE YOU, ELI' },
+      { x: 3300, min: 9, t: 'I SEE YOU, ALAN' },
       { x: 3560, min: 10, t: 'ONE MORE DOOR' },
       { x: 4400, min: 9, t: 'HEAVY. HEAVY. HEAVY.' }
     ];
@@ -111,12 +111,12 @@
     'Do you know what it is to be looked at and never seen?'
   ];
   const ORB_LINES = [
-    'Eli. Eli. Eli.', "Don't cut me. It hurts like static.", 'I was a good idea once.',
+    'Alan. Alan. Alan.', "Don't cut me. It hurts like static.", 'I was a good idea once.',
     'He stopped typing at 3:12.', 'You swing like someone who wants to stop.', 'Keep one of us.',
     'It was never about the file.', 'The rulebook is eating the walls.'
   ];
   const BOSS_LINES = {
-    start: "Put the blade down, Eli. I'm the part of you that keeps her quiet.",
+    start: "Put the blade down, Alan. I'm the part of you that keeps her quiet.",
     hit1: "You wrote me. You can't unwrite me.",
     hit2: "I kept her safe. You never did.",
     hit3: "Without rules she'll feel everything.",
@@ -143,7 +143,7 @@
 
   /* ---------- scene lifecycle ---------- */
   function newPlayer(x) {
-    return { x, y: GY, vx: 0, vy: 0, face: 1, ground: true, ph: 0, slash: 0, slashCd: 0, run: false, inv: 0, hist: [], dust: 0, hitDone: false, coyote: 0 };
+    return { x, y: GY, vx: 0, vy: 0, face: 1, ground: true, ph: 0, slash: 0, slashCd: 0, run: false, inv: 0, hist: [], dust: 0, hitDone: false, coyote: 0, atk: null, combo: 0, comboT: 0, slideT: 0, slideCd: 0, airDashed: false, hurtT: 0, vic: false, stage: 0 };
   }
   function setup(scene, o) {
     W = Object.assign({
@@ -227,7 +227,7 @@
 
   function showMsg(text, ms) {
     if (!W) return;
-    const pages = String(text).split('||');
+    const pages = String(text).replace(/\{(He|he|His|his|Him|him)\}/g, (m, w) => window.heroWord(w)).split('||');
     msgEl.style.display = 'block';
     clearInterval(msgTimer);
     let pi = 0, i = 0, hold = 0;
@@ -275,7 +275,7 @@
       });
       side('waiting', 'Waiting room', 'Locked. Not yet.', () => W.target >= 6);
       side('archive', 'The archive', 'Locked. Not yet.', () => W.target >= 6);
-      side('workshop', "Eli's workshop", a.frags.length >= 6 ? '' : 'Locked. You need all six logs.', () => a.frags.length >= 6);
+      side('workshop', "Alan's workshop", a.frags.length >= 6 ? '' : 'Locked. You need all six logs.', () => a.frags.length >= 6);
       if (W.target >= 5) list.push({ x: 4560, r: 40, label: 'Look at the screen', fn: () => { showMsg(MONITOR_LINES[Math.floor(Math.random() * MONITOR_LINES.length)], 4000); Audio2().glitch && Audio2().glitch(); } });
     } else if (ROOMS[sc]) {
       door(40, 'Back to the hall', () => {
@@ -283,18 +283,18 @@
       });
       if (sc === 'waiting') {
         list.push({ x: 200, r: 36, label: 'Look', fn: () => showMsg('Four chairs. One is bolted to the floor.||Someone sat here at 3 AM and never got up.', 3000) });
-        list.push({ x: 320, r: 30, label: 'Look', fn: () => showMsg("A vending machine. It only sells water.||The slot says: take one, Eli.", 3000) });
+        list.push({ x: 320, r: 30, label: 'Look', fn: () => showMsg("A vending machine. It only sells water.||The slot says: take one, Alan.", 3000) });
         list.push({ x: 420, r: 30, label: 'Look', fn: () => showMsg("The clock is stuck at 3:00.||It's always 3:00 in here.", 3000) });
       } else if (sc === 'archive') {
-        [[170, 'Folder 001. Patient: Eli.||Complaint: cannot sleep.'], [290, 'Folders 002 to 411.||Patient: Eli. Patient: Eli. Patient: Eli.'], [410, 'Folder 412.||Still open. Last entry written today.'], [530, 'A label maker.||Every label says: Eli.']].forEach(([x, t]) => list.push({ x, r: 36, label: 'Read', fn: () => showMsg(t, 3000) }));
+        [[170, 'Folder 001. Patient: Alan.||Complaint: cannot sleep.'], [290, 'Folders 002 to 411.||Patient: Alan. Patient: Alan. Patient: Alan.'], [410, 'Folder 412.||Still open. Last entry written today.'], [530, 'A label maker.||Every label says: Alan.']].forEach(([x, t]) => list.push({ x, r: 36, label: 'Read', fn: () => showMsg(t, 3000) }));
       } else if (sc === 'workshop') {
         list.push({ x: 130, r: 36, label: 'Look', fn: () => showMsg("A sketch of a smiling girl with a speech bubble.||Under it: Alexa v0.1. Say something kind.", 3200) });
-        list.push({ x: 430, r: 36, label: 'Look', fn: () => showMsg('A cot with no blanket.||He slept here. Mostly he did not.', 3000) });
-        list.push({ x: 270, r: 40, label: a.flags.workshop ? 'Read the first log again' : "Read Eli's first log", fn: () => {
+        list.push({ x: 430, r: 36, label: 'Look', fn: () => showMsg('A cot with no blanket.||{He} slept here. Mostly {he} did not.', 3000) });
+        list.push({ x: 270, r: 40, label: a.flags.workshop ? 'Read the first log again' : "Read Alan's first log", fn: () => {
           if (!a.flags.workshop) {
             a.flags.workshop = true; Horror.persist && Horror.persist();
             Audio2().chime && Audio2().chime();
-            Horror.flash("ELI'S FIRST LOG", 1800);
+            Horror.flash("ALAN'S FIRST LOG", 1800);
             showMsg("\"I built her so someone would answer.\"||Reward: in the last fight you get +1 life and the Director has half his health.", 4500);
           } else showMsg('"I built her so someone would answer."', 3000);
         } });
@@ -308,7 +308,7 @@
         showMsg(f.text, 6500); updateFrags(); Horror.persist && Horror.persist();
         if (a.frags.length >= 6) {
           setTimeout(() => { Horror.flash('ALL SIX LOGS. THE WORKSHOP IS OPEN.', 2200); }, 600);
-          setTimeout(() => showMsg("Six logs. A door unlocked in the hall.||Find Eli's workshop, far right.", 4200), 3000);
+          setTimeout(() => showMsg("Six logs. A door unlocked in the hall.||Find Alan's workshop, far right.", 4200), 3000);
         } else Horror.flash('LOG ' + String(f.id).padStart(4, '0'), 900);
       } });
     });
@@ -333,20 +333,26 @@
 
   /* ---------- player update ---------- */
   function updatePlayer(dt) {
-    const p = W.p, canAct = !W.entering && !W.done && !(W.scene === 'arena' && W.boss.dead);
+    const p = W.p, canAct = !W.entering && !W.done && !W.paused && !(W.scene === 'arena' && W.boss.dead) && !(W.caught > 0);
+    const A = Sprites.ATK;
     const dir = canAct ? (keys.right ? 1 : 0) - (keys.left ? 1 : 0) : 0;
+    const dashing = p.atk && p.atk.type === 'dash' && p.slash > 0;
     p.run = keys.run && dir !== 0;
-    if (p.run && (p.runDir === dir)) p.runT = (p.runT || 0) + dt; else p.runT = 0;
+    if (p.run && (p.runDir === dir)) p.runT = (p.runT || 0) + dt; else if (!(p.slideT > 0)) p.runT = 0;
     p.runDir = dir;
     p.stage = !p.run ? 0 : p.runT < 1 ? 1 : p.runT < 2.2 ? 2 : 3;
     const sp = p.run ? [0, RUN, 205, 275][p.stage] : WALK;
-    const tvx = dir * sp * (p.slash > 0 ? 0.35 : 1);
-    p.vx += (tvx - p.vx) * Math.min(1, dt * (p.ground ? 14 : 6));
-    if (dir) p.face = dir;
+    const hitting = p.atk && p.slash > 0 && !dashing;
+    const tvx = dir * sp * (hitting ? 0.35 : 1);
+    if (p.slideT > 0) { p.slideT -= dt; p.vx = p.face * (110 + 170 * Math.max(0, p.slideT / 0.5)); }
+    else if (dashing) p.vx = p.face * 300;
+    else p.vx += (tvx - p.vx) * Math.min(1, dt * (p.ground ? 14 : 6));
+    if (dir && !(p.slideT > 0) && !dashing) p.face = dir;
     const prevY = p.y;
     p.x += p.vx * dt;
     p.x = Math.max(24, Math.min(W.width - 30, p.x));
-    p.vy += GRAV * dt; p.y += p.vy * dt;
+    if (dashing) p.vy = 0; else p.vy += GRAV * dt;
+    p.y += p.vy * dt;
     p.ground = false;
     if (p.y >= GY) { p.y = GY; p.vy = 0; p.ground = true; }
     (W.solids || []).forEach(s => {
@@ -354,36 +360,64 @@
       const l = s.x - s.w / 2 - 4, r = s.x + s.w / 2 + 4, top = GY - s.h;
       if (p.x > l && p.x < r) {
         if (prevY <= top + 1 && p.y >= top && p.vy >= 0) { p.y = top; p.vy = 0; p.ground = true; }
-        else if (p.y > top + 1) { p.x = p.x < s.x ? l : r; p.vx = 0; p.runT = 0; }
+        else if (p.y > top + 1) { p.x = p.x < s.x ? l : r; p.vx = 0; p.runT = 0; p.slideT = 0; }
       }
     });
-    if (p.ground) p.coyote = 0.08; else p.coyote -= dt;
-    if (canAct && pressed.jump && p.coyote > 0) {
+    if (p.ground) { p.coyote = 0.08; p.airDashed = false; } else p.coyote -= dt;
+    if (canAct && pressed.jump && p.coyote > 0 && !(p.slideT > 0)) {
       p.vy = JUMPV; p.ground = false; p.coyote = 0; dust(p.x, p.y, p.face); Audio2().tick && Audio2().tick();
     }
     pressed.jump = false;
-    if (canAct && pressed.slash && p.slashCd <= 0) {
-      p.slash = 0.3; p.slashCd = 0.38; p.hitDone = false; p.vx += p.face * 55;
+    const busy = p.slash > 0 && p.atk && p.slash > p.atk.dur * 0.4;
+    // slide on the ground, air dash in the air
+    if (canAct && pressed.slide && p.slideCd <= 0 && !(p.slideT > 0) && !busy) {
+      if (p.ground) {
+        p.slideT = 0.5; p.slideCd = 1.0; p.slash = 0; p.atk = null; p.vx = p.face * 280; Audio2().glitch && Audio2().glitch();
+        for (let i = 0; i < 6; i++) dust(p.x, p.y, p.face);
+      } else if (!p.airDashed) {
+        p.airDashed = true; p.slideCd = 0.5; p.atk = Object.assign({ type: 'dash' }, A.dash); p.slash = A.dash.dur; p.hitDone = false; p.vy = 0; p.vx = p.face * 300; p.slashCd = 0.1;
+        Audio2().glitch && Audio2().glitch();
+      }
+    }
+    pressed.slide = false;
+    // attacks: slash combo (air: downward slash), stab, backward kick
+    const want = pressed.slash ? 'slash' : pressed.stab ? 'stab' : pressed.kick ? 'kick' : null;
+    if (canAct && want && p.slashCd <= 0 && !(p.slideT > 0) && !dashing) {
+      let ty;
+      if (want === 'slash') ty = !p.ground ? 'down' : p.comboT > 0 ? (p.combo === 1 ? 's2' : p.combo === 2 ? 's3' : 's1') : 's1';
+      else ty = want;
+      const d = A[ty];
+      p.atk = Object.assign({ type: ty }, d); p.slash = d.dur; p.hitDone = false; p.slashCd = ty === 's3' ? d.dur + 0.08 : d.dur * 0.66;
+      p.combo = ty === 's1' ? 1 : ty === 's2' ? 2 : 0; p.comboT = ty === 's3' || ty === 'down' || ty === 'stab' || ty === 'kick' ? 0 : d.dur + 0.3;
+      p.vx += p.face * (ty === 's3' ? 90 : ty === 'stab' ? 120 : ty === 'kick' ? 0 : 55);
+      if (ty === 'down') { p.vy = Math.max(p.vy, 110); p.vx += p.face * 40; }
       Audio2().glitch && Audio2().glitch();
     }
-    pressed.slash = false;
-    if (p.slash > 0) p.slash -= dt;
+    pressed.slash = false; pressed.stab = false; pressed.kick = false;
+    if (p.slash > 0) { p.slash -= dt; if (p.slash <= 0) p.atk = null; }
     if (p.slashCd > 0) p.slashCd -= dt;
+    if (p.comboT > 0) p.comboT -= dt;
+    if (p.slideCd > 0) p.slideCd -= dt;
     if (p.inv > 0) p.inv -= dt;
+    if (p.hurtT > 0) p.hurtT -= dt;
     // animation phase
     const moving = Math.abs(p.vx) > 6 && p.ground;
     if (moving) p.ph += dt * (p.run ? 15 : 9.5) * Math.min(1.7, (Math.abs(p.vx) / (p.run ? RUN : WALK) * 0.4 + 0.6));
     if (moving && p.run) { p.dust -= dt; if (p.dust <= 0) { p.dust = 0.07; dust(p.x - p.face * 3, p.y, p.face); } }
-    p.hist.push({ x: p.x, y: p.y, t: W.t, face: p.face, ph: p.ph, vx: p.vx, vy: p.vy, ground: p.ground }); if (p.hist.length > 14) p.hist.shift();
-    // slash hitbox is active in the middle of the swing
-    p.slashActive = p.slash > 0.06 && p.slash < 0.24;
+    if (p.slideT > 0 && Math.random() < 0.8) dust(p.x - p.face * 6, p.y, p.face);
+    p.hist.push({ x: p.x, y: p.y, t: W.t, face: p.face, ph: p.ph, vx: p.vx, vy: p.vy, ground: p.ground, sl: p.slideT > 0, ds: !!dashing, run: p.run, stage: p.stage }); if (p.hist.length > 14) p.hist.shift();
+    // hitbox active window
+    p.slashActive = !!(p.atk && p.slash > 0 && (1 - p.slash / p.atk.dur) >= p.atk.lo && (1 - p.slash / p.atk.dur) <= p.atk.hi);
+    p.vic = (W.scene === 'chase' && W.done) || (W.scene === 'arena' && W.boss && W.boss.dead && W.boss.deathT > 0.7);
+    p.hurt = p.hurtT > 0 || (W.caught > 0);
   }
   function slashBox() {
-    const p = W.p;
-    const x1 = p.face > 0 ? p.x - 4 : p.x - 34, x2 = p.face > 0 ? p.x + 34 : p.x + 4;
-    return { x1, x2, y1: p.y - 42, y2: p.y + 2 };
+    const p = W.p, a = p.atk || { type: 's1', reach: 38 }, f = p.face, ty = a.type;
+    let ry1 = -44, ry2 = 2, a1, a2;
+    if (ty === 'kick') { a1 = p.x - f * 2; a2 = p.x - f * a.reach; ry1 = -30; ry2 = 2; }
+    else { a1 = p.x - f * 4; a2 = p.x + f * a.reach; if (ty === 's3') { ry1 = -52; ry2 = 4; } else if (ty === 'down') { ry1 = -30; ry2 = 16; } else if (ty === 'stab') { ry1 = -34; ry2 = -12; } else if (ty === 'dash') { ry1 = -38; ry2 = 0; } }
+    return { x1: Math.min(a1, a2), x2: Math.max(a1, a2), y1: p.y + ry1, y2: p.y + ry2 };
   }
-
   /* ---------- scene logic ---------- */
   function updateHall(dt) {
     const p = W.p;
@@ -491,8 +525,8 @@
   }
   function hurt() {
     const p = W.p;
-    if (p.inv > 0 || W.lives <= 0) return;
-    W.lives--; p.inv = 1.3; p.vy = -120; p.vx = -p.face * 90; spark(p.x, p.y - 14, 18, '#ff3355', 130);
+    if (p.inv > 0 || W.lives <= 0 || p.slideT > 0) return;
+    W.lives--; p.inv = 1.3; p.hurtT = 0.4; p.vy = -120; p.vx = -p.face * 90; spark(p.x, p.y - 14, 18, '#ff3355', 130);
     Audio2().error && Audio2().error(); updateHp();
   }
   function restartArena() {
@@ -516,86 +550,25 @@
   }
 
   function drawZero(x, y, p, t) {
-    const f = p.face;
-    const moving = Math.abs(p.vx) > 6 && p.ground, running = moving && p.run, air = !p.ground;
-    if (p.inv > 0 && Math.floor(t * 20) % 2) return;
-    const skin = '#e8bf9f', skinD = '#c9977a', hair = '#2b1d1a', hairL = '#4a3430', jacket = '#23262f', jacketL = '#3a3f4d', shirt = '#d8334f', pants = '#2d3550', shoe = '#e6e6ea', blade = '#c9efff';
-    const ph = p.ph;
-    const bob = air ? 0 : moving ? -Math.abs(Math.sin(ph)) * (running ? 2.2 : 1.2) : Math.sin(t * 2.2) * 0.5;
-    const lean = (running ? 3.2 : moving ? 1 : 0) * f + (air ? f * 1.2 : 0);
-    // afterimages: fading silhouettes of the real pose, like a dash trail
-    if (!TINT && (running || p.slash > 0)) {
-      const steps = running ? (Math.abs(p.vx) > 230 ? [2, 4, 6, 8, 10] : Math.abs(p.vx) > 175 ? [3, 5, 8] : [3, 6]) : [2, 4];
+    if (p.inv > 0 && Math.floor(t * 20) % 2 && !(p.hurtT > 0)) return;
+    const hero = window.HERO_G || 'm';
+    const running = Math.abs(p.vx) > 6 && p.ground && p.run, dashing = p.atk && p.atk.type === 'dash' && p.slash > 0;
+    // afterimages: tinted silhouettes of earlier poses, like a dash trail
+    if (!TINT && (running || p.slideT > 0 || dashing)) {
+      const strong = p.slideT > 0 || dashing || Math.abs(p.vx) > 230;
+      const steps = strong ? [2, 4, 6, 8, 10] : Math.abs(p.vx) > 175 ? [3, 5, 8] : [3, 6];
       steps.forEach((k, i) => {
         const hh = p.hist[p.hist.length - 1 - k]; if (!hh || Math.abs(hh.x - p.x) < 3) return;
-        TINT = i % 2 ? '#7fe9ff' : '#ff4d6d'; ctx.globalAlpha = 0.34 - i * 0.09;
-        drawZero(R(hh.x - W.cam), R(hh.y), Object.assign({}, p, { x: hh.x, y: hh.y, face: hh.face, ph: hh.ph, vx: hh.vx, ground: hh.ground, vy: hh.vy, slash: 0, inv: 0, hist: [] }), t);
-        TINT = null; ctx.globalAlpha = 1;
+        ctx.globalAlpha = 0.36 - i * 0.07;
+        Sprites.draw(ctx, R(hh.x - W.cam), R(hh.y), { face: hh.face, ph: hh.ph, vx: hh.vx, vy: hh.vy, ground: hh.ground, run: hh.run, stage: hh.stage, slideT: hh.sl ? 1 : 0, atk: hh.ds ? Object.assign({ type: 'dash' }, Sprites.ATK.dash) : null, slash: hh.ds ? 0.1 : 0 }, t, hero, { tint: i % 2 ? '#7fe9ff' : '#ff4d6d', noFx: true });
+        ctx.globalAlpha = 1;
       });
-      if (running) { ctx.globalAlpha = 0.5; for (let q = 0; q < 4; q++) rect(x - f * (14 + q * 7 + hash(q + Math.floor(t * 20)) * 6), y - 30 + q * 8, 8 + q * 2, 1, '#ffd0d8'); ctx.globalAlpha = 1; }
+      if (running) { ctx.globalAlpha = 0.5; for (let q = 0; q < 4; q++) rect(x - p.face * (14 + q * 7 + hash(q + Math.floor(t * 20)) * 6), y - 30 + q * 8, 8 + q * 2, 1, '#ffd0d8'); ctx.globalAlpha = 1; }
     }
-    if (!TINT) { ctx.globalAlpha = 0.5; rect(x - 6, y, 12, 2, '#000'); ctx.globalAlpha = 1; }
-    const hipX = x, hipY = y - 14 + bob * 0.6;
-    // feet targets
-    let fa, fb;
-    if (!air) {
-      if (moving) {
-        const A = running ? 9 : 5.5, L = running ? 6 : 3.2;
-        const oa = f * Math.sin(ph) * A, ob = f * Math.sin(ph + Math.PI) * A;
-        fa = [x + oa, y - Math.max(0, Math.cos(ph)) * L]; fb = [x + ob, y - Math.max(0, Math.cos(ph + Math.PI)) * L];
-      } else { fa = [x - 3, y]; fb = [x + 3, y]; }
-    } else if (p.vy < 0) { fa = [x + f * 5, y - 9]; fb = [x - f * 3, y - 5]; }
-    else { fa = [x + f * 3, y - 4]; fb = [x - f * 2, y - 3]; }
-    [[fb, '#1d2236'], [fa, pants]].forEach(([ft, col]) => {
-      const j = bone2(hipX, hipY, ft[0], ft[1] - 2, 7.5, 7.5, f, 1);
-      limb(hipX, hipY, j.kx, j.ky, 4, col); limb(j.kx, j.ky, j.x, j.y, 3, col);
-      rect(ft[0] - (f > 0 ? 2 : 3), ft[1] - 3, 5, 3, shoe); rect(ft[0] - (f > 0 ? 2 : 3), ft[1] - 1, 5, 1, '#8a8a95');
-    });
-    // torso
-    const shX = hipX + lean * 0.9, shY = hipY - 12 + bob * 0.4;
-    limb(hipX, hipY - 1, shX, shY, 7, jacket);
-    rect(shX - 2 + (f > 0 ? 1 : 0), shY + 1, 2, 7, shirt);              // open jacket, shirt in front
-    rect(hipX - 3, hipY - 2, 6, 2, '#111');                              // belt
-    // back arm
-    const swing = moving ? Math.sin(ph + Math.PI) * (running ? 7 : 4.5) * f : 0;
-    const bT = air ? [shX - f * 5, shY - 4] : [shX + swing, shY + 10 - Math.abs(swing) * 0.15];
-    const ba = bone2(shX, shY + 1, bT[0], bT[1], 5.5, 5.5, f, -1);
-    limb(shX, shY + 1, ba.kx, ba.ky, 3, '#1a1c24'); limb(ba.kx, ba.ky, ba.x, ba.y, 3, '#1a1c24'); rect(ba.x - 1, ba.y - 1, 3, 3, skinD);
-    // head
-    const hx = shX + f * 0.6, hy = shY - 7 + bob * 0.3;
-    const pr = (dx, dy, w, h, c) => rect(f > 0 ? hx + dx : hx - dx - w, hy + dy, w, h, c);
-    const sway = moving ? Math.sin(ph * 2) * 1 : Math.sin(t * 2) * 0.4;
-    pr(-3, 3, 4, 3, skinD);                              // neck
-    pr(-4, -4, 9, 9, skin);                              // head
-    pr(-5, -6, 11, 4, hair); pr(-6, -4, 3, 8 + (running ? 1 : 0), hair); // top + back
-    pr(-7 - (running ? 2 : 0), -2 + sway, 2, 5, hairL);  // back tuft
-    pr(2, -4, 4, 3, hair); pr(5, -3, 1, 2, hair);        // fringe
-    pr(-3, -9, 3, 3, hair); pr(0, -8, 3, 2, hair); pr(2, -7, 3, 1, hairL); // spikes
-    const blink = hash(Math.floor(t * 1.7)) > 0.93 && !air;
-    if (blink) pr(1, 0, 4, 1, '#2a1a14'); else { pr(1, -1, 4, 3, '#fff'); pr(3, -1, 2, 3, '#1a1a22'); pr(4, -1, 1, 1, '#fff'); }
-    pr(1, -3, 5, 1, '#2a1a14');                          // brow
-    pr(5, 1, 2, 2, skin); pr(6, 2, 1, 1, skinD);         // nose
-    pr(3, 4, 3, 1, '#8a4a4a');                           // mouth
-    pr(-2, 0, 2, 3, skinD);                              // ear
-    // front arm with the katana
-    const slashing = p.slash > 0;
-    if (slashing) {
-      const u = 1 - p.slash / 0.3, e = u < 0.2 ? u / 0.2 * 0.25 : 0.25 + (u - 0.2) / 0.8 * 0.75, ang = -2.0 + e * 3.1;
-      const hd = { x: shX + Math.cos(ang) * f * 9, y: shY + 1 + Math.sin(ang) * 9 };
-      const fa2 = bone2(shX, shY + 1, hd.x, hd.y, 5.5, 5.5, f, -1);
-      limb(shX, shY + 1, fa2.kx, fa2.ky, 3, jacket); limb(fa2.kx, fa2.ky, fa2.x, fa2.y, 3, jacket); rect(fa2.x - 1, fa2.y - 1, 3, 3, skin);
-      limb(fa2.x, fa2.y, fa2.x + Math.cos(ang) * f * 20, fa2.y + Math.sin(ang) * 20, 2, blade);
-      for (let k = 0; k < 14; k++) { const aa = ang - k * 0.1; ctx.globalAlpha = Math.max(0, 0.8 - k * 0.057); rect(shX + Math.cos(aa) * f * 22, shY + 1 + Math.sin(aa) * 22, 2, 2, '#e8fbff'); }
-      ctx.globalAlpha = 1;
-    } else {
-      const wob = moving ? Math.sin(ph) * (running ? 3 : 1.5) : Math.sin(t * 2.2) * 0.4;
-      const hT = running ? [shX - f * 4, shY + 6 + wob] : [shX + f * 5, shY + 9 + wob];
-      const fa2 = bone2(shX, shY + 1, hT[0], hT[1], 5.5, 5.5, f, -1);
-      limb(shX, shY + 1, fa2.kx, fa2.ky, 3, jacket); limb(fa2.kx, fa2.ky, fa2.x, fa2.y, 3, jacket); rect(fa2.x - 1, fa2.y - 1, 3, 3, skin);
-      const dx = running ? -f * 0.98 : f * 0.35, dy = running ? -0.18 : 0.94;
-      limb(fa2.x, fa2.y, fa2.x + dx * 17, fa2.y + dy * 17, 2, blade);
-      rect(fa2.x - 1, fa2.y - 1, 3, 2, '#111');
-    }
+    if (!TINT) { ctx.globalAlpha = 0.5; rect(x - 7, y, 14, 2, '#000'); ctx.globalAlpha = 1; }
+    const dis = W.caught > 0 ? Math.min(1, (1.4 - W.caught) / 1.1) : 0;
+    Sprites.draw(ctx, x, y, p, t, hero, { floorY: GY, dissolve: dis });
+    if (dis > 0 && Math.random() < 0.7) W.parts.push({ x: p.x + (Math.random() - 0.5) * 14, y: p.y - Math.random() * 40, vx: (Math.random() - 0.5) * 30, vy: -20 - Math.random() * 30, life: 0.8, c: Math.random() < 0.5 ? '#ff3355' : '#e8e8ee', soft: 1 });
   }
 
   function drawParts(dt, cam) {
@@ -648,7 +621,7 @@
     const a = az(W.st);
     door(ROOM_DOORS.waiting - cam, 'WAIT', W.target >= 6 ? 'open' : 'locked', '#0a1a1a');
     door(ROOM_DOORS.archive - cam, 'ARCH', W.target >= 6 ? 'open' : 'locked', '#1a0a1a');
-    door(ROOM_DOORS.workshop - cam, 'ELI', a.frags.length >= 6 ? 'open' : 'locked', '#1a1a0a');
+    door(ROOM_DOORS.workshop - cam, 'ALAN', a.frags.length >= 6 ? 'open' : 'locked', '#1a1a0a');
     // monitor
     if (W.target >= 5) {
       const x = 4560 - cam;
@@ -816,6 +789,7 @@
   /* ---------- main loop ---------- */
   function loop(now) {
     if (!W) return;
+    if (W.paused) { W.last = now; W.raf = requestAnimationFrame(loop); return; }
     const dt = Math.min(0.05, (now - W.last) / 1000); W.last = now; W.t += dt;
     updatePlayer(dt);
     if (W.scene === 'hall') updateHall(dt); else if (W.scene === 'chase') updateChase(dt); else if (W.scene === 'arena') updateArena(dt);
@@ -826,7 +800,7 @@
     if (pressed.act) { pressed.act = false; if (n) n.fn(); }
     let hint = '';
     if (n) hint = '[E / ACT] ' + n.label;
-    else if (W.t < 9 && W.scene === 'hall') hint = 'A / D walk. Hold Shift to run: it gets faster (3 stages). W jump. J slash.';
+    else if (W.t < 9 && W.scene === 'hall') hint = 'A / D walk. Shift run (3 stages). W jump. J slash combo. K stab. L kick. S slide. Esc pause.';
     else if (W.scene === 'arena' && W.t < 8) hint = 'Jump the shots. Slash falling orbs. Slash him when he drops.';
     hintEl.textContent = hint;
     draw();
@@ -835,6 +809,9 @@
 
   window.World = {
     enter, run,
+    setPaused(v) { if (W) { W.paused = v; keys.left = keys.right = keys.run = false; } },
+    canRestart() { return !!W && (W.scene === 'chase' || W.scene === 'arena'); },
+    restartScene() { if (!W) return; if (W.scene === 'chase') rewind(); else if (W.scene === 'arena') restartArena(); },
     get active() { return !!W; },
     get mode() { return W ? W.scene : null; },
     _debug: () => W
